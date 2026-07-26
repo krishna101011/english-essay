@@ -20,3 +20,11 @@ _load_dotenv(BASE_DIR / ".env")
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./app.db")
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "change-me")
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY")
+
+
+def is_production(app_env: str) -> bool:
+    return app_env.strip().lower() == "production"
+
+
+APP_ENV = os.environ.get("APP_ENV", "development")
+IS_PRODUCTION = is_production(APP_ENV)

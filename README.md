@@ -7,7 +7,8 @@ suggestions, and a rubric score from an AI model of their choice.
 
 See [PROJECT_BRIEF.md](PROJECT_BRIEF.md) for the full design and build order,
 and the phase docs for what's built so far:
-[Phase 1](docs/phase-1-mvp.md), [Phase 2](docs/phase-2-book-vocab.md).
+[Phase 1](docs/phase-1-mvp.md), [Phase 2](docs/phase-2-book-vocab.md),
+[Phase 3](docs/phase-3-deployment.md).
 
 ## Setup
 
@@ -26,6 +27,10 @@ string) and `ENCRYPTION_KEY` (generate with the command below):
 ```
 venv\Scripts\python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+`.env`'s `APP_ENV` defaults to `development`; leave it as-is for local work
+(see [docs/phase-3-deployment.md](docs/phase-3-deployment.md) for what
+`APP_ENV=production` changes and how to deploy).
 
 Apply database migrations:
 

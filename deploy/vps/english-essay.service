@@ -1,0 +1,32 @@
+# systemd unit template for running the app on a small VPS.
+# Not installed or activated by this repo — copy to /etc/systemd/system/
+# and adjust User/WorkingDirectory/paths for your server, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now english-essay
+#
+# Runs plain uvicorn with multiple worker processes (no gunicorn added —
+# uvicorn's own --workers flag is enough for a single small VPS, and the
+# brief's tech stack already specifies Uvicorn as the ASGI server).
+
+[Unit]
+Description=English Essay Coach (FastAPI/Uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/english-essay
+EnvironmentFile=/opt/english-essay/.env
+ExecStart=/opt/english-essay/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=5
+
+# Basic hardening — safe defaults for a single-purpose app service.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/english-essay
+
+[Install]
+WantedBy=multi-user.target
