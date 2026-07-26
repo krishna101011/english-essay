@@ -1,0 +1,18 @@
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.ai.routes import router as ai_router
+from app.auth.routes import router as auth_router
+from app.config import SESSION_SECRET_KEY
+from app.documents.routes import router as documents_router
+
+app = FastAPI(title="English Essay Coach")
+
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+app.include_router(auth_router)
+app.include_router(ai_router)
+app.include_router(documents_router)

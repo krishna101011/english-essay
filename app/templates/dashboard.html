@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block content %}
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-xl font-semibold">Your documents</h1>
+        <a href="/" class="bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700">New essay</a>
+    </div>
+
+    {% if not rows %}
+    <p class="text-slate-500">No documents yet. <a class="text-indigo-700" href="/">Write your first essay</a>.</p>
+    {% else %}
+    <div class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200">
+        {% for row in rows %}
+        <a href="/documents/{{ row.document.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
+            <div>
+                <p class="font-medium">{{ row.document.title }}</p>
+                <p class="text-xs text-slate-500">
+                    version {{ row.latest_version_number }} ·
+                    created {{ row.document.created_at.strftime("%Y-%m-%d") }}
+                </p>
+            </div>
+            {% if row.score %}
+            <span class="text-lg font-semibold text-indigo-700">{{ "%.0f"|format(row.score.overall_score) }}</span>
+            {% else %}
+            <span class="text-xs text-slate-400">no score</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{% if document %}{{ document.title }}{% else %}New essay{% endif %}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+
+    {% if local_error %}
+    <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3">
+        <strong>Local grammar check unavailable:</strong> {{ local_error }}
+    </div>
+    {% endif %}
+    {% if ai_error %}
+    <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3">
+        <strong>AI feedback unavailable:</strong> {{ ai_error }}
+    </div>
+    {% endif %}
+
+    {% if version and version.score %}
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-3">Score — version {{ version.version_number }}</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center mb-3">
+            <div class="bg-indigo-50 rounded p-2"><div class="text-2xl font-bold text-indigo-700">{{ "%.0f"|format(version.score.overall_score) }}</div><div class="text-xs text-slate-500">Overall</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">{{ "%.0f"|format(version.score.grammar_score) }}</div><div class="text-xs text-slate-500">Grammar</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">{{ "%.0f"|format(version.score.vocab_score) }}</div><div class="text-xs text-slate-500">Vocabulary</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">{{ "%.0f"|format(version.score.structure_score) }}</div><div class="text-xs text-slate-500">Structure</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">{{ "%.0f"|format(version.score.clarity_score) }}</div><div class="text-xs text-slate-500">Clarity</div></div>
+        </div>
+        <p class="text-sm text-slate-700">{{ version.score.feedback_summary }}</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-3">
+            {% if document %}Revise this essay{% else %}Write something new{% endif %}
+        </h2>
+        <form method="post" action="{% if document %}/documents/{{ document.id }}{% else %}/{% endif %}" class="space-y-4">
+            {% if not document %}
+            <div>
+                <label class="block text-sm font-medium mb-1" for="title">Title</label>
+                <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="title" name="title" required>
+            </div>
+            {% endif %}
+            <div>
+                <label class="block text-sm font-medium mb-1" for="content">Essay text</label>
+                <textarea class="w-full border border-slate-300 rounded px-3 py-2 font-mono text-sm" id="content" name="content" rows="14" required>{{ version.content if version else "" }}</textarea>
+            </div>
+            <button class="bg-indigo-600 text-white rounded px-4 py-2 font-medium hover:bg-indigo-700" type="submit">
+                {% if document %}Resubmit for feedback{% else %}Submit for feedback{% endif %}
+            </button>
+        </form>
+    </div>
+
+    {% if version %}
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-3">Inline corrections</h2>
+        <div id="highlighted-text" class="whitespace-pre-wrap font-mono text-sm border border-slate-200 rounded p-3 bg-slate-50 leading-relaxed"></div>
+        <ul id="correction-list" class="mt-4 space-y-2 text-sm"></ul>
+    </div>
+    <script id="essay-data" type="application/json">
+        {{ {"content": version.content, "corrections": corrections} | tojson }}
+    </script>
+    <script src="/static/editor.js"></script>
+    {% endif %}
+</div>
+{% endblock %}
