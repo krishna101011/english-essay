@@ -30,17 +30,41 @@
 
     <div class="bg-white border border-slate-200 rounded-lg p-5">
         <h2 class="font-semibold mb-3">
-            {% if document %}Revise this essay{% else %}Write something new{% endif %}
+            {% if document %}Revise this {{ document.type.value.replace("_", " ") }}{% else %}Write something new{% endif %}
         </h2>
         <form method="post" action="{% if document %}/documents/{{ document.id }}{% else %}/{% endif %}" class="space-y-4">
             {% if not document %}
+            <div class="flex items-center gap-4 text-sm">
+                <label class="flex items-center gap-1">
+                    <input type="radio" name="doc_type" value="essay" checked onchange="document.getElementById('book-fields').classList.add('hidden')">
+                    Essay
+                </label>
+                <label class="flex items-center gap-1">
+                    <input type="radio" name="doc_type" value="book_chapter" onchange="document.getElementById('book-fields').classList.remove('hidden')">
+                    Book/chapter reflection
+                </label>
+            </div>
             <div>
                 <label class="block text-sm font-medium mb-1" for="title">Title</label>
                 <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="title" name="title" required>
             </div>
+            <div id="book-fields" class="hidden grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1" for="book_title">Book title</label>
+                    <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="book_title" name="book_title">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1" for="author">Author</label>
+                    <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="author" name="author">
+                </div>
+            </div>
+            {% elif document.type.value == "book_chapter" %}
+            <p class="text-sm text-slate-500">
+                {{ document.book_title }}{% if document.author %} by {{ document.author }}{% endif %}
+            </p>
             {% endif %}
             <div>
-                <label class="block text-sm font-medium mb-1" for="content">Essay text</label>
+                <label class="block text-sm font-medium mb-1" for="content">{{ "Reflection" if document and document.type.value == "book_chapter" else "Essay text" }}</label>
                 <textarea class="w-full border border-slate-300 rounded px-3 py-2 font-mono text-sm" id="content" name="content" rows="14" required>{{ version.content if version else "" }}</textarea>
             </div>
             <button class="bg-indigo-600 text-white rounded px-4 py-2 font-medium hover:bg-indigo-700" type="submit">

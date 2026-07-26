@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -39,6 +39,7 @@ class User(Base):
 
     ai_settings: Mapped[list["AISettings"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     documents: Mapped[list["Document"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    vocab_words: Mapped[list["VocabWord"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class AISettings(Base):
@@ -116,3 +117,21 @@ class Score(Base):
     feedback_summary: Mapped[str] = mapped_column(Text, nullable=False)
 
     version: Mapped["DocumentVersion"] = relationship(back_populates="score")
+
+
+class VocabWord(Base):
+    __tablename__ = "vocab_words"
+    __table_args__ = (UniqueConstraint("user_id", "word", name="uq_vocab_words_user_id_word"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    word: Mapped[str] = mapped_column(String(255), nullable=False)
+    definition: Mapped[str] = mapped_column(Text, nullable=False)
+    example_sentence: Mapped[str] = mapped_column(Text, nullable=False)
+    source_document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    times_suggested: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    mastered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="vocab_words")
+    source_document: Mapped["Document | None"] = relationship()

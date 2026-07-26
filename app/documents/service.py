@@ -15,6 +15,7 @@ from app.db.models import (
 )
 from app.documents.diff import diff_paragraphs
 from app.grammar.checker import JavaNotFoundError, check_text
+from app.vocab.service import upsert_suggested_word
 
 
 @dataclass
@@ -54,6 +55,9 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
         )
 
     context = {"type": document.type.value, "title": document.title}
+    if document.type.value == "book_chapter":
+        context["book_title"] = document.book_title
+        context["author"] = document.author
 
     if previous_version is not None:
         changed_ranges, unchanged_pairs = diff_paragraphs(previous_version.content, content)
@@ -110,6 +114,15 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
                         source=CorrectionSource.llm,
                     )
                 )
+                if correction.category == "vocab" and correction.definition and correction.example_sentence:
+                    upsert_suggested_word(
+                        db,
+                        user_id=document.user_id,
+                        source_document_id=document.id,
+                        word=correction.suggested_text,
+                        definition=correction.definition,
+                        example_sentence=correction.example_sentence,
+                    )
             db.add(
                 Score(
                     version_id=version.id,

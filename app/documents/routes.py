@@ -4,9 +4,11 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.dependencies import get_current_user
-from app.db.models import Document, DocumentType, User
+from app.db.models import CorrectionSource, Document, DocumentType, DocumentVersion, Score, User
 from app.db.session import get_db
 from app.documents.service import submit_version
+
+VALID_DOC_TYPES = {t.value for t in DocumentType}
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -43,13 +45,26 @@ def editor_create(
     request: Request,
     title: str = Form(...),
     content: str = Form(...),
+    doc_type: str = Form("essay"),
+    book_title: str = Form(""),
+    author: str = Form(""),
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)
 
-    document = Document(user_id=user.id, type=DocumentType.essay, title=title.strip() or "Untitled essay")
+    if doc_type not in VALID_DOC_TYPES:
+        doc_type = "essay"
+    is_book_chapter = doc_type == DocumentType.book_chapter.value
+
+    document = Document(
+        user_id=user.id,
+        type=DocumentType(doc_type),
+        title=title.strip() or "Untitled essay",
+        book_title=(book_title.strip() or None) if is_book_chapter else None,
+        author=(author.strip() or None) if is_book_chapter else None,
+    )
     db.add(document)
     db.flush()
 
@@ -160,4 +175,17 @@ def history(
                 "score": latest.score if latest else None,
             }
         )
-    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows})
+
+    score_history = (
+        db.query(DocumentVersion.submitted_at, Score.overall_score, Document.title)
+        .join(Score, Score.version_id == DocumentVersion.id)
+        .join(Document, Document.id == DocumentVersion.document_id)
+        .filter(Document.user_id == user.id)
+        .order_by(DocumentVersion.submitted_at.asc())
+        .all()
+    )
+    chart_points = [
+        {"date": submitted_at.strftime("%Y-%m-%d"), "score": overall_score, "title": title}
+        for submitted_at, overall_score, title in score_history
+    ]
+    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows, "chart_points": chart_points})

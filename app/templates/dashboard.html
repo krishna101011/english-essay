@@ -7,6 +7,15 @@
         <a href="/" class="bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700">New essay</a>
     </div>
 
+    {% if chart_points|length > 1 %}
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-3">Overall score over time</h2>
+        <div id="score-chart"></div>
+    </div>
+    <script id="score-chart-data" type="application/json">{{ chart_points | tojson }}</script>
+    <script src="/static/dashboard.js"></script>
+    {% endif %}
+
     {% if not rows %}
     <p class="text-slate-500">No documents yet. <a class="text-indigo-700" href="/">Write your first essay</a>.</p>
     {% else %}
@@ -16,7 +25,7 @@
             <div>
                 <p class="font-medium">{{ row.document.title }}</p>
                 <p class="text-xs text-slate-500">
-                    version {{ row.latest_version_number }} ·
+                    {{ row.document.type.value.replace("_", " ") }} · version {{ row.latest_version_number }} ·
                     created {{ row.document.created_at.strftime("%Y-%m-%d") }}
                 </p>
             </div>

@@ -6,7 +6,8 @@ locally (free), then get sentence-structure feedback, vocabulary upgrade
 suggestions, and a rubric score from an AI model of their choice.
 
 See [PROJECT_BRIEF.md](PROJECT_BRIEF.md) for the full design and build order,
-and the phase docs for what's built so far: [Phase 1](docs/phase-1-mvp.md).
+and the phase docs for what's built so far:
+[Phase 1](docs/phase-1-mvp.md), [Phase 2](docs/phase-2-book-vocab.md).
 
 ## Setup
 

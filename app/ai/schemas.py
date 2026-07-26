@@ -10,6 +10,14 @@ class LLMCorrection(BaseModel):
     original_text: str
     suggested_text: str
     explanation: str = Field(description="Plain-English explanation for the writer")
+    definition: str | None = Field(
+        default=None,
+        description="Only for category=vocab: a short dictionary-style definition of suggested_text",
+    )
+    example_sentence: str | None = Field(
+        default=None,
+        description="Only for category=vocab: an example sentence using suggested_text",
+    )
 
 
 class EssayFeedback(BaseModel):
