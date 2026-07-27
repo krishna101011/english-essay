@@ -13,3 +13,4 @@ jinja2
 python-multipart
 pytest
 httpx
+slowapi  # pre-approved for Phase 4 rate limiting

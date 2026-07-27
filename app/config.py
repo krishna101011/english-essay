@@ -28,3 +28,11 @@ def is_production(app_env: str) -> bool:
 
 APP_ENV = os.environ.get("APP_ENV", "development")
 IS_PRODUCTION = is_production(APP_ENV)
+
+# Left unset in dev/tests on purpose: get_email_sender() falls back to
+# ConsoleEmailSender (logs instead of sending) whenever SMTP_HOST is empty.
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@example.com")

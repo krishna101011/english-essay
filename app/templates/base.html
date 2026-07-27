@@ -18,6 +18,7 @@
             <a href="/vocab" class="hover:text-indigo-700">Vocabulary</a>
             <a href="/settings" class="hover:text-indigo-700">Settings</a>
             <form action="/logout" method="post">
+                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                 <button type="submit" class="text-slate-500 hover:text-red-600">Log out</button>
             </form>
         </div>

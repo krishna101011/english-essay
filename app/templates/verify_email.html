@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Verify your email{% endblock %}
+{% block content %}
+<div class="max-w-sm mx-auto bg-white border border-slate-200 rounded-lg p-6 text-center">
+    {% if success %}
+    <h1 class="text-xl font-semibold mb-2 text-emerald-700">Email verified</h1>
+    <p class="text-sm text-slate-600 mb-4">You're all set — you can now write essays and book-chapter reflections.</p>
+    <a class="inline-block bg-indigo-600 text-white rounded px-4 py-2 font-medium hover:bg-indigo-700" href="/">Start writing</a>
+    {% else %}
+    <h1 class="text-xl font-semibold mb-2 text-red-600">Link invalid or expired</h1>
+    <p class="text-sm text-slate-600 mb-4">
+        That verification link is invalid, expired, or has already been used.
+        Log in and check your settings, or contact support if this keeps happening.
+    </p>
+    <a class="inline-block bg-indigo-600 text-white rounded px-4 py-2 font-medium hover:bg-indigo-700" href="/login">Log in</a>
+    {% endif %}
+</div>
+{% endblock %}

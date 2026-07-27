@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth.csrf import verify_csrf
 from app.auth.dependencies import get_current_user
 from app.db.models import CorrectionSource, Document, DocumentType, DocumentVersion, Score, User
 from app.db.session import get_db
@@ -36,7 +37,14 @@ def editor_new(request: Request, user: User | None = Depends(get_current_user)):
     return templates.TemplateResponse(
         request,
         "editor.html",
-        {"document": None, "version": None, "corrections": [], "ai_error": None, "local_error": None},
+        {
+            "document": None,
+            "version": None,
+            "corrections": [],
+            "ai_error": None,
+            "local_error": None,
+            "email_verified": user.email_verified,
+        },
     )
 
 
@@ -50,9 +58,12 @@ def editor_create(
     author: str = Form(""),
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)
+    if not user.email_verified:
+        return RedirectResponse("/", status_code=303)
 
     if doc_type not in VALID_DOC_TYPES:
         doc_type = "essay"
@@ -122,6 +133,7 @@ def revise_document(
     content: str = Form(...),
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)

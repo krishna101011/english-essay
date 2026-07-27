@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.ai.crypto import decrypt_api_key, encrypt_api_key, mask_api_key
 from app.ai.provider import OpenAICompatibleProvider
 from app.ai.registry import PROVIDER_REGISTRY
+from app.auth.csrf import verify_csrf
 from app.auth.dependencies import get_current_user
 from app.db.models import AISettings, User
 from app.db.session import get_db
@@ -61,6 +62,7 @@ def save_settings(
     api_key: str = Form(""),
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)
@@ -70,7 +72,7 @@ def save_settings(
 
     if settings is None:
         if not api_key:
-            return _render_settings_error(request, db, user, "An API key is required for a new provider setup.")
+            return render_settings_error(request, db, user, "An API key is required for a new provider setup.")
         settings = AISettings(
             user_id=user.id,
             provider=provider,
@@ -91,7 +93,7 @@ def save_settings(
     return RedirectResponse("/settings", status_code=303)
 
 
-def _render_settings_error(request: Request, db: Session, user: User, error: str):
+def render_settings_error(request: Request, db: Session, user: User, error: str):
     settings = db.query(AISettings).filter(AISettings.user_id == user.id).first()
     return templates.TemplateResponse(
         request,
@@ -112,6 +114,7 @@ def test_connection(
     request: Request,
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)

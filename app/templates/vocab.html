@@ -23,6 +23,7 @@
                 <p class="text-sm text-slate-400 italic">"{{ w.example_sentence }}"</p>
             </div>
             <form method="post" action="/vocab/{{ w.id }}/toggle-mastered">
+                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                 <button
                     type="submit"
                     class="text-xs font-medium rounded px-3 py-1.5 {% if w.mastered %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}"

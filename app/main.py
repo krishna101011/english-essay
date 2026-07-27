@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.ai.routes import router as ai_router
+from app.auth.csrf import CSRFCookieMiddleware
 from app.auth.routes import router as auth_router
 from app.config import IS_PRODUCTION, SESSION_SECRET_KEY
 from app.documents.routes import router as documents_router
+from app.rate_limit import limiter, rate_limit_exceeded_handler
 from app.vocab.routes import router as vocab_router
 
 app = FastAPI(
@@ -14,6 +18,12 @@ app = FastAPI(
     redoc_url=None if IS_PRODUCTION else "/redoc",
     openapi_url=None if IS_PRODUCTION else "/openapi.json",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+app.add_middleware(CSRFCookieMiddleware)
 
 app.add_middleware(
     SessionMiddleware,

@@ -32,7 +32,14 @@
         <h2 class="font-semibold mb-3">
             {% if document %}Revise this {{ document.type.value.replace("_", " ") }}{% else %}Write something new{% endif %}
         </h2>
+        {% if not document and not email_verified %}
+        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3">
+            <strong>Verify your email to start writing.</strong> We sent a verification link to your
+            email address when you signed up — open it and click the link, then come back here.
+        </div>
+        {% else %}
         <form method="post" action="{% if document %}/documents/{{ document.id }}{% else %}/{% endif %}" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
             {% if not document %}
             <div class="flex items-center gap-4 text-sm">
                 <label class="flex items-center gap-1">
@@ -71,6 +78,7 @@
                 {% if document %}Resubmit for feedback{% else %}Submit for feedback{% endif %}
             </button>
         </form>
+        {% endif %}
     </div>
 
     {% if version %}

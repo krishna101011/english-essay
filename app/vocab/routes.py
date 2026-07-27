@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth.csrf import verify_csrf
 from app.auth.dependencies import get_current_user
 from app.db.models import User, VocabWord
 from app.db.session import get_db
@@ -34,6 +35,7 @@ def toggle_mastered(
     word_id: int,
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)
