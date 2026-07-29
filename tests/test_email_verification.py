@@ -1,3 +1,6 @@
+import pytest
+
+import app.auth.routes as auth_routes
 from app.auth.security import hash_password
 from app.auth.tokens import create_email_verification_token
 from app.db import models
@@ -6,6 +9,33 @@ from app.db import models
 def _get_csrf(client, path):
     client.get(path)
     return client.cookies.get("csrf_token")
+
+
+def test_signup_rolls_back_user_if_sending_verification_email_fails(client, db_session, monkeypatch):
+    class BoomSender:
+        def send(self, to, subject, body):
+            raise RuntimeError("smtp boom")
+
+    monkeypatch.setattr(auth_routes, "get_email_sender", lambda: BoomSender())
+
+    token = _get_csrf(client, "/signup")
+
+    with pytest.raises(RuntimeError):
+        client.post(
+            "/signup",
+            data={
+                "email": "smoketest-persist@example.com",
+                "password": "correct-horse-battery-staple",
+                "website": "",
+                "csrf_token": token,
+            },
+            follow_redirects=False,
+        )
+
+    orphaned_user = (
+        db_session.query(models.User).filter(models.User.email == "smoketest-persist@example.com").first()
+    )
+    assert orphaned_user is None
 
 
 def test_signup_sends_verification_email(client, db_session, fake_email_sender):

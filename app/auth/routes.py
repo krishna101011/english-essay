@@ -71,11 +71,14 @@ def signup_submit(
 
     new_user = User(email=email, password_hash=hash_password(password))
     db.add(new_user)
-    db.commit()
+    try:
+        db.flush()
+        _send_verification_email(request, db, new_user)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(new_user)
-
-    _send_verification_email(request, db, new_user)
-    db.commit()
 
     request.session["user_id"] = new_user.id
     return RedirectResponse("/", status_code=303)

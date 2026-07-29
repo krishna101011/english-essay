@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
@@ -11,6 +13,13 @@ from app.config import IS_PRODUCTION, SESSION_SECRET_KEY
 from app.documents.routes import router as documents_router
 from app.rate_limit import limiter, rate_limit_exceeded_handler
 from app.vocab.routes import router as vocab_router
+
+# Without this, app.* loggers (e.g. ConsoleEmailSender logging verification/
+# reset links) have no handler and are silently dropped - uvicorn's own
+# logging setup only configures its "uvicorn.*" loggers, not the root
+# logger. Runs at import time so it applies under `uvicorn --reload` too,
+# since the reloader worker re-imports this module fresh.
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="English Essay Coach",
