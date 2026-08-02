@@ -93,6 +93,9 @@ class DocumentVersion(Base):
     document: Mapped["Document"] = relationship(back_populates="versions")
     corrections: Mapped[list["Correction"]] = relationship(back_populates="version", cascade="all, delete-orphan")
     score: Mapped["Score"] = relationship(back_populates="version", cascade="all, delete-orphan", uselist=False)
+    model_rewrite: Mapped["ModelRewrite"] = relationship(
+        back_populates="version", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class Correction(Base):
@@ -124,6 +127,19 @@ class Score(Base):
     feedback_summary: Mapped[str] = mapped_column(Text, nullable=False)
 
     version: Mapped["DocumentVersion"] = relationship(back_populates="score")
+
+
+class ModelRewrite(Base):
+    __tablename__ = "model_rewrites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version_id: Mapped[int] = mapped_column(
+        ForeignKey("document_versions.id"), nullable=False, unique=True, index=True
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    version: Mapped["DocumentVersion"] = relationship(back_populates="model_rewrite")
 
 
 class VocabWord(Base):

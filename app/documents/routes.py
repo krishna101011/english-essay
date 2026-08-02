@@ -7,7 +7,7 @@ from app.auth.csrf import verify_csrf
 from app.auth.dependencies import get_current_user
 from app.db.models import CorrectionSource, Document, DocumentType, DocumentVersion, Score, User
 from app.db.session import get_db
-from app.documents.service import submit_version
+from app.documents.service import get_or_create_rewrite, remove_document, submit_version
 
 VALID_DOC_TYPES = {t.value for t in DocumentType}
 
@@ -159,6 +159,93 @@ def revise_document(
             "local_error": result.local_error,
         },
     )
+
+
+def _load_owned_version(db: Session, document_id: int, version_id: int, user_id: int) -> DocumentVersion | None:
+    return (
+        db.query(DocumentVersion)
+        .join(Document, Document.id == DocumentVersion.document_id)
+        .filter(
+            DocumentVersion.id == version_id,
+            DocumentVersion.document_id == document_id,
+            Document.user_id == user_id,
+        )
+        .first()
+    )
+
+
+def _rewrite_response(request: Request, version: DocumentVersion, rewrite_error: str | None):
+    return templates.TemplateResponse(
+        request,
+        "editor.html",
+        {
+            "document": version.document,
+            "version": version,
+            "corrections": _correction_payload(version),
+            "ai_error": None,
+            "local_error": None,
+            "rewrite_error": rewrite_error,
+        },
+    )
+
+
+@router.post("/documents/{document_id}/versions/{version_id}/rewrite")
+def generate_rewrite(
+    request: Request,
+    document_id: int,
+    version_id: int,
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+
+    version = _load_owned_version(db, document_id, version_id, user.id)
+    if version is None:
+        return RedirectResponse("/history", status_code=303)
+
+    result = get_or_create_rewrite(db, version, user.id, force=False)
+    return _rewrite_response(request, version, result.error)
+
+
+@router.post("/documents/{document_id}/versions/{version_id}/rewrite/regenerate")
+def regenerate_rewrite(
+    request: Request,
+    document_id: int,
+    version_id: int,
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+
+    version = _load_owned_version(db, document_id, version_id, user.id)
+    if version is None:
+        return RedirectResponse("/history", status_code=303)
+
+    result = get_or_create_rewrite(db, version, user.id, force=True)
+    return _rewrite_response(request, version, result.error)
+
+
+@router.post("/documents/{document_id}/delete")
+def delete_document(
+    request: Request,
+    document_id: int,
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+
+    document = db.query(Document).filter(Document.id == document_id, Document.user_id == user.id).first()
+    if document is None:
+        return RedirectResponse("/history", status_code=303)
+
+    remove_document(db, document)
+    return RedirectResponse("/history", status_code=303)
 
 
 @router.get("/history")

@@ -17,7 +17,9 @@ def enable_sqlite_wal(engine) -> None:
         cursor.close()
 
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+connect_args = (
+    {"check_same_thread": False, "timeout": 15} if DATABASE_URL.startswith("sqlite") else {}
+)
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 if DATABASE_URL.startswith("sqlite") and ":memory:" not in DATABASE_URL:
     enable_sqlite_wal(engine)

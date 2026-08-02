@@ -21,20 +21,27 @@
     {% else %}
     <div class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200">
         {% for row in rows %}
-        <a href="/documents/{{ row.document.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
-            <div>
+        <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
+            <a href="/documents/{{ row.document.id }}" class="flex-1 min-w-0">
                 <p class="font-medium">{{ row.document.title }}</p>
                 <p class="text-xs text-slate-500">
                     {{ row.document.type.value.replace("_", " ") }} · version {{ row.latest_version_number }} ·
                     created {{ row.document.created_at.strftime("%Y-%m-%d") }}
                 </p>
+            </a>
+            <div class="flex items-center gap-3">
+                {% if row.score %}
+                <span class="text-lg font-semibold text-indigo-700">{{ "%.0f"|format(row.score.overall_score) }}</span>
+                {% else %}
+                <span class="text-xs text-slate-400">no score</span>
+                {% endif %}
+                <form method="post" action="/documents/{{ row.document.id }}/delete"
+                      onsubmit="return confirm('Delete this essay permanently? This cannot be undone.');">
+                    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                    <button class="text-slate-400 hover:text-red-600 text-xs" type="submit">Delete</button>
+                </form>
             </div>
-            {% if row.score %}
-            <span class="text-lg font-semibold text-indigo-700">{{ "%.0f"|format(row.score.overall_score) }}</span>
-            {% else %}
-            <span class="text-xs text-slate-400">no score</span>
-            {% endif %}
-        </a>
+        </div>
         {% endfor %}
     </div>
     {% endif %}

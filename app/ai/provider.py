@@ -43,8 +43,23 @@ def build_user_message(essay_text: str, local_findings: dict, context: dict) -> 
     )
 
 
+REWRITE_SYSTEM_PROMPT = {
+    "role": "system",
+    "content": (
+        "You are an expert English writing tutor. Rewrite the essay you are given "
+        "using ONLY the ideas, arguments, and details the writer already included. "
+        "Improve vocabulary, grammar, structure, and flow, but do not introduce any "
+        "new content, opinions, examples, or facts the writer didn't write. The "
+        "result should read as their own essay, written by someone with stronger "
+        "English - not a new essay on the same topic. Respond with only the "
+        "rewritten essay text: no preamble, no commentary, no markdown formatting."
+    ),
+}
+
+
 class AIProvider(Protocol):
     def analyze(self, essay_text: str, local_findings: dict, context: dict) -> EssayFeedback: ...
+    def rewrite(self, essay_text: str) -> str: ...
 
 
 class OpenAICompatibleProvider:
@@ -62,6 +77,16 @@ class OpenAICompatibleProvider:
             response_format={"type": "json_schema", "json_schema": ESSAY_FEEDBACK_SCHEMA},
         )
         return EssayFeedback.parse(response)
+
+    def rewrite(self, essay_text: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                REWRITE_SYSTEM_PROMPT,
+                {"role": "user", "content": essay_text},
+            ],
+        )
+        return response.choices[0].message.content.strip()
 
     def test_connection(self) -> tuple[bool, str]:
         try:
