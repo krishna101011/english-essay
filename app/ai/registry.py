@@ -2,7 +2,7 @@ PROVIDER_REGISTRY = {
     "gemini": {
         "label": "Google Gemini",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "example_model": "gemini-2.5-flash",
+        "example_model": "gemini-3.6-flash",
     },
     "groq": {
         "label": "Groq",

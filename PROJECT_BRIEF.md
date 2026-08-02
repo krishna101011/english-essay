@@ -55,7 +55,7 @@ Provider registry / suggested defaults for the settings dropdown:
 
 | Provider | base_url | Example free model |
 |---|---|---|
-| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.6-flash` |
 | Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
 | OpenRouter | `https://openrouter.ai/api/v1` | any `*:free` model |
 | Ollama (local) | `http://localhost:11434/v1` | whatever the user has pulled |
