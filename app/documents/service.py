@@ -112,32 +112,58 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
     db.add(version)
     db.flush()
 
-    for finding in local_findings:
+    # Corrections can end up describing the same span twice: the AI doesn't
+    # always honor "only emit corrections within changed_paragraph_ranges"
+    # for unchanged paragraphs, so a fresh suggestion for a span can arrive
+    # alongside that same span's carried-forward correction from the
+    # previous version - and since carry-forward copies whatever the
+    # previous version already persisted, any duplicate that slips through
+    # gets carried into every subsequent revision too, compounding forever.
+    # Keeping only the first correction seen per (start_offset, end_offset,
+    # category) here is what actually stops that: every version from now on
+    # persists at most one row per span, so there's nothing left to compound.
+    persisted_spans = set()
+
+    def _persist_correction_if_new(category, start_offset, end_offset, original_text, suggested_text, explanation, source):
+        category = CorrectionCategory(category)
+        key = (start_offset, end_offset, category)
+        if key in persisted_spans:
+            return False
+        persisted_spans.add(key)
         db.add(
             Correction(
                 version_id=version.id,
-                category=CorrectionCategory(finding["category"]),
-                start_offset=finding["start_offset"],
-                end_offset=finding["end_offset"],
-                original_text=finding["original_text"],
-                suggested_text=finding["suggested_text"],
-                explanation=finding["explanation"],
-                source=CorrectionSource.local,
+                category=category,
+                start_offset=start_offset,
+                end_offset=end_offset,
+                original_text=original_text,
+                suggested_text=suggested_text,
+                explanation=explanation,
+                source=source,
             )
+        )
+        return True
+
+    for finding in local_findings:
+        _persist_correction_if_new(
+            finding["category"],
+            finding["start_offset"],
+            finding["end_offset"],
+            finding["original_text"],
+            finding["suggested_text"],
+            finding["explanation"],
+            CorrectionSource.local,
         )
 
     for carried in carried_llm_corrections:
-        db.add(
-            Correction(
-                version_id=version.id,
-                category=carried["category"],
-                start_offset=carried["start_offset"],
-                end_offset=carried["end_offset"],
-                original_text=carried["original_text"],
-                suggested_text=carried["suggested_text"],
-                explanation=carried["explanation"],
-                source=CorrectionSource.llm,
-            )
+        _persist_correction_if_new(
+            carried["category"],
+            carried["start_offset"],
+            carried["end_offset"],
+            carried["original_text"],
+            carried["suggested_text"],
+            carried["explanation"],
+            CorrectionSource.llm,
         )
 
     if feedback is not None:
@@ -146,19 +172,16 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
                 continue
             if not (0 <= correction.start_offset < correction.end_offset <= len(content)):
                 continue
-            db.add(
-                Correction(
-                    version_id=version.id,
-                    category=CorrectionCategory(correction.category),
-                    start_offset=correction.start_offset,
-                    end_offset=correction.end_offset,
-                    original_text=correction.original_text,
-                    suggested_text=correction.suggested_text,
-                    explanation=correction.explanation,
-                    source=CorrectionSource.llm,
-                )
+            was_new = _persist_correction_if_new(
+                correction.category,
+                correction.start_offset,
+                correction.end_offset,
+                correction.original_text,
+                correction.suggested_text,
+                correction.explanation,
+                CorrectionSource.llm,
             )
-            if correction.category == "vocab" and correction.definition and correction.example_sentence:
+            if was_new and correction.category == "vocab" and correction.definition and correction.example_sentence:
                 upsert_suggested_word(
                     db,
                     user_id=document.user_id,

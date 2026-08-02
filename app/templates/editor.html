@@ -14,8 +14,16 @@
     </div>
     {% endif %}
 
+    {% if version %}
+    <div class="sticky top-0 z-10 bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-4 py-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium text-slate-600">
+        {% if version.score %}<a href="#score" class="hover:text-indigo-700">Score</a>{% endif %}
+        {% if document %}<a href="#model-rewrite" class="hover:text-indigo-700">Model rewrite</a>{% endif %}
+        <a href="#corrections" class="hover:text-indigo-700">Corrections</a>
+    </div>
+    {% endif %}
+
     {% if version and version.score %}
-    <div class="bg-white border border-slate-200 rounded-lg p-5">
+    <div id="score" class="bg-white border border-slate-200 rounded-lg p-5 scroll-mt-16">
         <h2 class="font-semibold mb-3">Score — version {{ version.version_number }}</h2>
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center mb-3">
             <div class="bg-indigo-50 rounded p-2"><div class="text-2xl font-bold text-indigo-700">{{ "%.0f"|format(version.score.overall_score) }}</div><div class="text-xs text-slate-500">Overall</div></div>
@@ -25,6 +33,34 @@
             <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">{{ "%.0f"|format(version.score.clarity_score) }}</div><div class="text-xs text-slate-500">Clarity</div></div>
         </div>
         <p class="text-sm text-slate-700">{{ version.score.feedback_summary }}</p>
+    </div>
+    {% endif %}
+
+    {% if version and document %}
+    <div id="model-rewrite" class="bg-white border border-slate-200 rounded-lg p-5 scroll-mt-16">
+        <h2 class="font-semibold mb-1">Model rewrite</h2>
+        <p class="text-xs text-slate-500 mb-3">For comparison, not for copying — a learning tool, not a replacement for your own writing.</p>
+
+        {% if rewrite_error %}
+        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3 mb-3">
+            {{ rewrite_error }}
+        </div>
+        {% endif %}
+
+        {% if version.model_rewrite %}
+        <div class="border-2 border-dashed border-purple-300 bg-purple-50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{{ version.model_rewrite.content }}</div>
+        <form method="post" action="/documents/{{ document.id }}/versions/{{ version.id }}/rewrite/regenerate" class="mt-2">
+            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+            <button class="text-xs text-slate-500 hover:text-indigo-700 underline" type="submit">Regenerate</button>
+        </form>
+        {% else %}
+        <form method="post" action="/documents/{{ document.id }}/versions/{{ version.id }}/rewrite">
+            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+            <button class="bg-purple-600 text-white rounded px-4 py-2 font-medium hover:bg-purple-700 text-sm" type="submit">
+                See an improved version
+            </button>
+        </form>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -82,43 +118,15 @@
     </div>
 
     {% if version %}
-    <div class="bg-white border border-slate-200 rounded-lg p-5">
+    <div id="corrections" class="bg-white border border-slate-200 rounded-lg p-5 scroll-mt-16">
         <h2 class="font-semibold mb-3">Inline corrections</h2>
         <div id="highlighted-text" class="whitespace-pre-wrap font-mono text-sm border border-slate-200 rounded p-3 bg-slate-50 leading-relaxed"></div>
-        <ul id="correction-list" class="mt-4 space-y-2 text-sm"></ul>
+        <div id="correction-list" class="mt-4 space-y-2 text-sm"></div>
     </div>
     <script id="essay-data" type="application/json">
         {{ {"content": version.content, "corrections": corrections} | tojson }}
     </script>
     <script src="/static/editor.js"></script>
-
-    {% if document %}
-    <div class="bg-white border border-slate-200 rounded-lg p-5">
-        <h2 class="font-semibold mb-1">Model rewrite</h2>
-        <p class="text-xs text-slate-500 mb-3">For comparison, not for copying — a learning tool, not a replacement for your own writing.</p>
-
-        {% if rewrite_error %}
-        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3 mb-3">
-            {{ rewrite_error }}
-        </div>
-        {% endif %}
-
-        {% if version.model_rewrite %}
-        <div class="border-2 border-dashed border-purple-300 bg-purple-50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{{ version.model_rewrite.content }}</div>
-        <form method="post" action="/documents/{{ document.id }}/versions/{{ version.id }}/rewrite/regenerate" class="mt-2">
-            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-            <button class="text-xs text-slate-500 hover:text-indigo-700 underline" type="submit">Regenerate</button>
-        </form>
-        {% else %}
-        <form method="post" action="/documents/{{ document.id }}/versions/{{ version.id }}/rewrite">
-            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-            <button class="bg-purple-600 text-white rounded px-4 py-2 font-medium hover:bg-purple-700 text-sm" type="submit">
-                See an improved version
-            </button>
-        </form>
-        {% endif %}
-    </div>
-    {% endif %}
     {% endif %}
 </div>
 {% endblock %}

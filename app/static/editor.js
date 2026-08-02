@@ -20,6 +20,8 @@
         vocab: "Vocabulary",
     };
 
+    const CATEGORY_ORDER = ["spelling", "punctuation", "grammar", "sentence_structure", "vocab"];
+
     function escapeHtml(text) {
         const div = document.createElement("div");
         div.textContent = text;
@@ -47,24 +49,45 @@
     }
 
     function renderCorrectionList() {
-        const list = document.getElementById("correction-list");
+        const container = document.getElementById("correction-list");
         if (corrections.length === 0) {
-            list.innerHTML = '<li class="text-slate-500">No issues found.</li>';
+            container.innerHTML = '<p class="text-slate-500">No issues found.</p>';
             return;
         }
-        list.innerHTML = corrections
-            .map((c) => {
-                const cls = CATEGORY_STYLES[c.category] || "bg-slate-200";
-                const label = CATEGORY_LABELS[c.category] || c.category;
-                const suggestion = c.suggested_text
-                    ? `<span class="text-slate-400">→</span> <span class="font-medium">${escapeHtml(c.suggested_text)}</span>`
-                    : "";
-                return `<li class="border border-slate-200 rounded p-2">
-                    <span class="inline-block text-xs font-medium px-2 py-0.5 rounded ${cls} mr-2">${label}</span>
-                    <span class="line-through text-slate-500">${escapeHtml(c.original_text)}</span>
-                    ${suggestion}
-                    <p class="text-slate-600 mt-1">${escapeHtml(c.explanation)}</p>
-                </li>`;
+
+        const byCategory = {};
+        for (const c of corrections) {
+            (byCategory[c.category] = byCategory[c.category] || []).push(c);
+        }
+        const orderedCategories = [
+            ...CATEGORY_ORDER.filter((cat) => byCategory[cat]),
+            ...Object.keys(byCategory).filter((cat) => !CATEGORY_ORDER.includes(cat)),
+        ];
+
+        container.innerHTML = orderedCategories
+            .map((category) => {
+                const items = byCategory[category];
+                const cls = CATEGORY_STYLES[category] || "bg-slate-200";
+                const label = CATEGORY_LABELS[category] || category;
+                const itemsHtml = items
+                    .map((c) => {
+                        const suggestion = c.suggested_text
+                            ? `<span class="text-slate-400">→</span> <span class="font-medium">${escapeHtml(c.suggested_text)}</span>`
+                            : "";
+                        return `<li class="border border-slate-200 rounded p-2">
+                            <span class="line-through text-slate-500">${escapeHtml(c.original_text)}</span>
+                            ${suggestion}
+                            <p class="text-slate-600 mt-1">${escapeHtml(c.explanation)}</p>
+                        </li>`;
+                    })
+                    .join("");
+                return `<details class="border border-slate-200 rounded">
+                    <summary class="cursor-pointer select-none px-3 py-2 flex items-center gap-2 hover:bg-slate-50">
+                        <span class="inline-block text-xs font-medium px-2 py-0.5 rounded ${cls}">${label}</span>
+                        <span class="text-slate-500 text-xs">(${items.length})</span>
+                    </summary>
+                    <ul class="px-3 pb-3 pt-1 space-y-2">${itemsHtml}</ul>
+                </details>`;
             })
             .join("");
     }

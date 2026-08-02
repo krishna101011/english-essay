@@ -50,6 +50,36 @@ class FailingProvider:
         raise RuntimeError("provider unreachable")
 
 
+class DuplicatingProvider:
+    """Returns multiple corrections for the exact same span in a single
+    response, the way a real AI response sometimes does."""
+
+    def __init__(self, api_key, base_url, model):
+        pass
+
+    def analyze(self, essay_text, local_findings, context):
+        return _canned_feedback(
+            [
+                LLMCorrection(
+                    category="vocab",
+                    start_offset=10,
+                    end_offset=25,
+                    original_text="very very good",
+                    suggested_text="delightful",
+                    explanation="Replacing repetitive modifiers improves the sophistication of your writing.",
+                ),
+                LLMCorrection(
+                    category="vocab",
+                    start_offset=10,
+                    end_offset=25,
+                    original_text="very very good",
+                    suggested_text="delightful",
+                    explanation="Replacing informal, repeated modifiers makes your writing sound more sophisticated.",
+                ),
+            ]
+        )
+
+
 class QueuedProvider:
     """Hands out one canned EssayFeedback per call, in order, so a test can
     simulate what a real provider would do differently across submissions
@@ -222,3 +252,100 @@ def test_revision_carries_forward_llm_corrections_for_unchanged_paragraphs(db_se
     unchanged_start_v2 = second_content.index("Unchanged paragraph")
     assert carried.start_offset == unchanged_start_v2
     assert carried.start_offset != unchanged_start_v1  # offset was remapped, not just copied verbatim
+
+
+def test_submit_version_deduplicates_repeated_corrections_from_a_single_ai_response(db_session, document, monkeypatch):
+    # Regression test: a single AI response returning two corrections for
+    # the exact same span (same start_offset/end_offset/category, different
+    # wording) must collapse to one persisted Correction row, not two.
+    monkeypatch.setattr(service, "check_text", lambda text: [])
+    monkeypatch.setattr(service, "OpenAICompatibleProvider", DuplicatingProvider)
+
+    ai_settings = models.AISettings(
+        user_id=document.user_id,
+        provider="groq",
+        encrypted_api_key=encrypt_api_key("sk-fake-key"),
+        model_name="llama-3.3-70b-versatile",
+        base_url="https://api.groq.com/openai/v1",
+    )
+    db_session.add(ai_settings)
+    db_session.commit()
+
+    result = service.submit_version(db_session, document, "An essay with very very good writing in it.")
+
+    llm_corrections = [c for c in result.version.corrections if c.source == models.CorrectionSource.llm]
+    assert len(llm_corrections) == 1
+    assert llm_corrections[0].suggested_text == "delightful"
+
+
+def test_submit_version_deduplicates_carried_forward_correction_against_fresh_duplicate(
+    db_session, document, monkeypatch
+):
+    # Regression test for the actual bug found in production data: the AI
+    # doesn't always honor "only emit corrections within
+    # changed_paragraph_ranges" for unchanged paragraphs, so a revision can
+    # carry forward a correction for an unchanged span AND receive a fresh
+    # AI suggestion for that same span in the same response. Without
+    # dedup, both get persisted - and since the next revision carries
+    # forward whatever this version just persisted, the duplicate would
+    # compound on every subsequent submission.
+    monkeypatch.setattr(service, "check_text", lambda text: [])
+    monkeypatch.setattr(service, "OpenAICompatibleProvider", QueuedProvider)
+
+    ai_settings = models.AISettings(
+        user_id=document.user_id,
+        provider="groq",
+        encrypted_api_key=encrypt_api_key("sk-fake-key"),
+        model_name="llama-3.3-70b-versatile",
+        base_url="https://api.groq.com/openai/v1",
+    )
+    db_session.add(ai_settings)
+    db_session.commit()
+
+    first_content = "Short intro.\n\nUnchanged paragraph stays the same, it is very very good."
+    span_start_v1 = first_content.index("very very good")
+    span_end_v1 = span_start_v1 + len("very very good")
+
+    QueuedProvider.responses = [
+        _canned_feedback(
+            [
+                LLMCorrection(
+                    category="vocab",
+                    start_offset=span_start_v1,
+                    end_offset=span_end_v1,
+                    original_text="very very good",
+                    suggested_text="delightful",
+                    explanation="Replacing repetitive modifiers improves the sophistication of your writing.",
+                )
+            ]
+        ),
+    ]
+    first_result = service.submit_version(db_session, document, first_content)
+    assert len(first_result.version.corrections) == 1
+
+    second_content = "Much longer introductory paragraph now.\n\nUnchanged paragraph stays the same, it is very very good."
+    span_start_v2 = second_content.index("very very good")
+    span_end_v2 = span_start_v2 + len("very very good")
+
+    # v2's fresh AI response re-suggests the same span (worded differently)
+    # even though it falls inside the untouched paragraph - exactly what
+    # was observed happening against the real provider.
+    QueuedProvider.responses = [
+        _canned_feedback(
+            [
+                LLMCorrection(
+                    category="vocab",
+                    start_offset=span_start_v2,
+                    end_offset=span_end_v2,
+                    original_text="very very good",
+                    suggested_text="delightful",
+                    explanation="Replacing informal, repeated modifiers makes your writing sound more sophisticated.",
+                )
+            ]
+        ),
+    ]
+    second_result = service.submit_version(db_session, document, second_content)
+
+    llm_corrections = [c for c in second_result.version.corrections if c.source == models.CorrectionSource.llm]
+    assert len(llm_corrections) == 1
+    assert llm_corrections[0].start_offset == span_start_v2
