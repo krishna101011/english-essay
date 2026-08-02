@@ -21,20 +21,22 @@
     </div>
     {% endif %}
 
+    {% set selected_provider_key = settings.provider if settings and settings.provider in providers else (providers.keys() | list)[0] %}
+    {% set selected_example_model = providers[selected_provider_key].example_model or "your model" %}
     <form method="post" action="/settings" class="space-y-4">
         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
         <div>
             <label class="block text-sm font-medium mb-1" for="provider">Provider</label>
             <select class="w-full border border-slate-300 rounded px-3 py-2" id="provider" name="provider">
                 {% for key, info in providers.items() %}
-                <option value="{{ key }}" {% if settings and settings.provider == key %}selected{% endif %}>{{ info.label }}</option>
+                <option value="{{ key }}" data-example-model="{{ info.example_model or '' }}" {% if settings and settings.provider == key %}selected{% endif %}>{{ info.label }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1" for="model_name">Model name</label>
             <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="model_name" name="model_name"
-                   value="{{ settings.model_name if settings else '' }}" placeholder="e.g. gemini-3.6-flash" required>
+                   value="{{ settings.model_name if settings else '' }}" placeholder="e.g. {{ selected_example_model }}" required>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1" for="base_url">Base URL <span class="text-slate-400 font-normal">(leave blank to use the provider default)</span></label>
@@ -55,6 +57,7 @@
     </form>
     {% endif %}
 </div>
+<script src="/static/settings.js"></script>
 
 <div class="max-w-lg mx-auto bg-white border border-red-200 rounded-lg p-6 mt-6">
     <h2 class="text-lg font-semibold mb-1 text-red-700">Delete account</h2>
