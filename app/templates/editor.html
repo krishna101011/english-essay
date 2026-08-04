@@ -3,13 +3,19 @@
 {% block content %}
 <div class="space-y-6">
 
+    <h1 class="text-xl font-semibold">{% if document %}{{ document.title }}{% else %}Write a new essay{% endif %}</h1>
+
+    {% if form_error %}
+    <div class="bg-red-50 border border-red-300 text-red-800 text-sm rounded px-4 py-3" role="alert">{{ form_error }}</div>
+    {% endif %}
+
     {% if local_error %}
-    <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3">
+    <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3" role="alert">
         <strong>Local grammar check unavailable:</strong> {{ local_error }}
     </div>
     {% endif %}
     {% if ai_error %}
-    <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3">
+    <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3" role="alert">
         <strong>AI feedback unavailable:</strong> {{ ai_error }}
     </div>
     {% endif %}
@@ -19,6 +25,7 @@
         {% if version.score %}<a href="#score" class="hover:text-indigo-700">Score</a>{% endif %}
         {% if document %}<a href="#model-rewrite" class="hover:text-indigo-700">Model rewrite</a>{% endif %}
         <a href="#corrections" class="hover:text-indigo-700">Corrections</a>
+        {% if document %}<a href="/documents/{{ document.id }}/versions/{{ version.id }}/export.pdf" class="hover:text-indigo-700 ml-auto">Export PDF</a>{% endif %}
     </div>
     {% endif %}
 
@@ -33,16 +40,20 @@
             <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">{{ "%.0f"|format(version.score.clarity_score) }}</div><div class="text-xs text-slate-500">Clarity</div></div>
         </div>
         <p class="text-sm text-slate-700">{{ version.score.feedback_summary }}</p>
+        {% if score_guidance %}
+        <div class="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-700"><p><strong>{{ score_guidance.band }}.</strong> AI scores are guidance for practice, not an objective grade.</p><p class="mt-2"><strong>Next best action — {{ score_guidance.next_dimension.replace('_', ' ')|title }}:</strong> {{ score_guidance.next_action }}</p><details class="mt-2"><summary class="cursor-pointer text-indigo-700">What each score means</summary><ul class="list-disc pl-5 mt-2">{% for name, explanation in score_guidance.dimensions.items() %}<li><strong>{{ name|title }}:</strong> {{ explanation }} Scores 85–100 show a strong foundation, 70–84 developing well, 50–69 a useful next step, and below 50 a small starting point.</li>{% endfor %}</ul></details></div>
+        {% endif %}
     </div>
     {% endif %}
 
     {% if version and document %}
+    {% if version.version_number > 1 %}<p class="text-sm"><a class="text-indigo-700 underline" href="/documents/{{ document.id }}/compare?from_version_id={{ document.versions[-2].id }}&to_version_id={{ version.id }}">Compare with the previous version</a></p>{% endif %}
     <div id="model-rewrite" class="bg-white border border-slate-200 rounded-lg p-5 scroll-mt-16">
         <h2 class="font-semibold mb-1">Model rewrite</h2>
         <p class="text-xs text-slate-500 mb-3">For comparison, not for copying — a learning tool, not a replacement for your own writing.</p>
 
         {% if rewrite_error %}
-        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3 mb-3">
+        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3 mb-3" role="alert">
             {{ rewrite_error }}
         </div>
         {% endif %}
@@ -69,36 +80,46 @@
             {% if document %}Revise this {{ document.type.value.replace("_", " ") }}{% else %}Write something new{% endif %}
         </h2>
         {% if not document and not email_verified %}
-        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3">
-            <strong>Verify your email to start writing.</strong> We sent a verification link to your
-            email address when you signed up — open it and click the link, then come back here.
+        <div class="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded px-4 py-3 space-y-2" role="alert">
+            <p><strong>Verify your email to start writing.</strong> We sent a verification link to your
+            email address when you signed up — open it and click the link, then come back here.</p>
+            {% if verification_status == "sent" %}
+            <p class="text-emerald-700" role="status">A new verification email is on its way.</p>
+            {% elif verification_status == "cooldown" %}
+            <p role="status">You already requested one recently — please check your inbox (and spam folder) before requesting another.</p>
+            {% endif %}
+            <form method="post" action="/resend-verification">
+                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                <button type="submit" class="text-amber-900 underline font-medium">Resend verification email</button>
+            </form>
         </div>
         {% else %}
-        <form method="post" action="{% if document %}/documents/{{ document.id }}{% else %}/{% endif %}" class="space-y-4">
+        <form method="post" action="{% if document %}/documents/{{ document.id }}{% else %}/{% endif %}" class="space-y-4" data-submission-form data-document-id="{{ document.id if document else '' }}" data-base-version-id="{{ version.id if version else '' }}" data-draft-id="{{ draft.id if draft else '' }}" data-draft-revision="{{ draft.revision if draft else '' }}">
             <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+            <input type="hidden" name="draft_id" value="{{ draft.id if draft else '' }}" data-draft-id-input>
             {% if not document %}
             <div class="flex items-center gap-4 text-sm">
                 <label class="flex items-center gap-1">
-                    <input type="radio" name="doc_type" value="essay" checked onchange="document.getElementById('book-fields').classList.add('hidden')">
+                    <input type="radio" name="doc_type" value="essay" {% if not draft or draft.type.value != "book_chapter" %}checked{% endif %} data-doc-type="essay">
                     Essay
                 </label>
                 <label class="flex items-center gap-1">
-                    <input type="radio" name="doc_type" value="book_chapter" onchange="document.getElementById('book-fields').classList.remove('hidden')">
+                    <input type="radio" name="doc_type" value="book_chapter" {% if draft and draft.type.value == "book_chapter" %}checked{% endif %} data-doc-type="book_chapter">
                     Book/chapter reflection
                 </label>
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1" for="title">Title</label>
-                <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="title" name="title" required>
+                <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="title" name="title" maxlength="200" value="{{ draft.title if draft else '' }}" required>
             </div>
             <div id="book-fields" class="hidden grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium mb-1" for="book_title">Book title</label>
-                    <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="book_title" name="book_title">
+                    <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="book_title" name="book_title" value="{{ draft.book_title if draft else '' }}">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1" for="author">Author</label>
-                    <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="author" name="author">
+                    <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="author" name="author" value="{{ draft.author if draft else '' }}">
                 </div>
             </div>
             {% elif document.type.value == "book_chapter" %}
@@ -108,11 +129,18 @@
             {% endif %}
             <div>
                 <label class="block text-sm font-medium mb-1" for="content">{{ "Reflection" if document and document.type.value == "book_chapter" else "Essay text" }}</label>
-                <textarea class="w-full border border-slate-300 rounded px-3 py-2 font-mono text-sm" id="content" name="content" rows="14" required>{{ version.content if version else "" }}</textarea>
+                <textarea class="w-full border border-slate-300 rounded px-3 py-2 font-mono text-sm" id="content" name="content" rows="14" maxlength="50000" required>{{ draft.content if draft else (version.content if version else "") }}</textarea>
+                <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600" aria-live="polite">
+                    <span data-word-count>0 words</span><span data-character-count>0 characters</span>
+                    <label class="flex items-center gap-1">Target <input class="w-20 border border-slate-300 rounded px-1 py-0.5" type="number" min="1" max="10000" name="target_word_count" value="{{ draft.target_word_count if draft and draft.target_word_count else '' }}" data-target-word-count> words</label>
+                    <span data-target-progress></span>
+                </div>
             </div>
-            <button class="bg-indigo-600 text-white rounded px-4 py-2 font-medium hover:bg-indigo-700" type="submit">
-                {% if document %}Resubmit for feedback{% else %}Submit for feedback{% endif %}
+            <button class="bg-indigo-600 text-white rounded px-4 py-2 font-medium hover:bg-indigo-700" type="submit" data-submit-button>
+                <span data-submit-label>{% if document %}Resubmit for feedback{% else %}Submit for feedback{% endif %}</span>
             </button>
+            <p class="hidden text-sm text-slate-600" role="status" aria-live="polite" data-submit-status>Saving draft…</p>
+            <p class="text-xs text-slate-500" role="status" aria-live="polite" data-autosave-status>Changes are saved automatically.</p>
         </form>
         {% endif %}
     </div>
@@ -124,9 +152,9 @@
         <div id="correction-list" class="mt-4 space-y-2 text-sm"></div>
     </div>
     <script id="essay-data" type="application/json">
-        {{ {"content": version.content, "corrections": corrections} | tojson }}
+        {{ {"content": (draft.content if draft else version.content), "corrections": corrections, "ignored_correction_ids": (draft.ignored_correction_ids() | list if draft else [])} | tojson }}
     </script>
-    <script src="/static/editor.js"></script>
     {% endif %}
 </div>
+<script src="/static/editor.js"></script>
 {% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Progress{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-xl font-semibold">Your progress</h1>
+
+    {% if not has_enough_history %}
+    <div class="bg-white border border-slate-200 rounded-lg p-6 text-center">
+        <p class="text-slate-600">
+            {% if scored_count == 0 %}
+            No scored essays yet. Submit an essay with an AI provider configured to start tracking your progress.
+            {% else %}
+            Not enough scored history yet to show a trend - submit at least one more essay.
+            {% endif %}
+        </p>
+        <a href="/" class="inline-block mt-3 text-indigo-700 hover:underline text-sm">Write an essay &rarr;</a>
+    </div>
+    {% else %}
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-1">Weekly average score</h2>
+        <p class="text-xs text-slate-500 mb-3">Last {{ trend|length }} week(s), in your local timezone ({{ timezone_name }}).</p>
+        <div id="score-chart" role="img" aria-label="Weekly average overall score trend"></div>
+        <table class="sr-only">
+            <caption>Weekly average overall score</caption>
+            <thead><tr><th scope="col">Week starting</th><th scope="col">Average score</th><th scope="col">Submissions</th></tr></thead>
+            <tbody>
+                {% for point in trend %}
+                <tr><td>{{ point.week_start }}</td><td>{{ point.avg_score }}</td><td>{{ point.submissions }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script id="trend-chart-data" type="application/json">{{ trend | tojson }}</script>
+    <script src="/static/progress-chart.js"></script>
+    {% endif %}
+
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-1">Common mistakes</h2>
+        <p class="text-xs text-slate-500 mb-3">
+            Categories that came up at least 3 times in the last 30 days - a single correction never counts as a pattern.
+        </p>
+        {% if not mistakes %}
+        <p class="text-slate-500 text-sm">No recurring patterns yet. Keep writing - this fills in once a category repeats.</p>
+        {% else %}
+        <ul class="space-y-2">
+            {% for m in mistakes %}
+            <li class="flex items-center justify-between text-sm border-b border-slate-100 pb-2 last:border-0">
+                <span class="capitalize">{{ m.category.replace("_", " ") }}</span>
+                <span class="text-slate-500">{{ m.count }} times</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <a href="/practice" class="inline-block mt-4 bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700">
+            Practice these &rarr;
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-2">Goals &amp; streaks</h2>
+        <a href="/goals" class="text-indigo-700 hover:underline text-sm">View your weekly goal and streak &rarr;</a>
+    </div>
+</div>
+{% endblock %}

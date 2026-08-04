@@ -14,3 +14,6 @@ python-multipart
 pytest
 httpx
 slowapi  # pre-approved for Phase 4 rate limiting
+redis>=5,<7  # required by SlowAPI for shared production rate-limit storage
+reportlab  # PDF export - pure Python, no system libraries required (unlike weasyprint/wkhtmltopdf)
+tzdata  # zoneinfo has no IANA database of its own on Windows (and on minimal Linux images); this supplies it

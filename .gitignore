@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 app.db
+app.db.*
 *.db
 *.db-shm
 *.db-wal
@@ -12,3 +13,4 @@ app.db
 .vscode/
 .idea/
 backups/
+.claude/settings.local.json

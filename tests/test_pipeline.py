@@ -194,7 +194,8 @@ def test_submit_version_ai_failure_still_keeps_local_results(db_session, documen
     result = service.submit_version(db_session, document, "Foo essay.")
 
     assert result.ai_error is not None
-    assert "provider unreachable" in result.ai_error
+    assert result.ai_error == "AI feedback is unavailable. Your essay was saved; check Settings and retry."
+    assert "provider unreachable" not in result.ai_error
     assert result.version.score is None
     assert len(result.version.corrections) == 1
     assert result.version.corrections[0].source == models.CorrectionSource.local
@@ -349,3 +350,86 @@ def test_submit_version_deduplicates_carried_forward_correction_against_fresh_du
     llm_corrections = [c for c in second_result.version.corrections if c.source == models.CorrectionSource.llm]
     assert len(llm_corrections) == 1
     assert llm_corrections[0].start_offset == span_start_v2
+
+
+class _FirstProviderRateLimitedThenVocabProvider:
+    """First configured provider (by model name) is rate-limited; the
+    second succeeds and returns one vocab correction, so upsert_suggested_word
+    actually runs downstream during the persistence phase."""
+
+    def __init__(self, api_key, base_url, model):
+        self.model = model
+
+    def analyze(self, essay_text, local_findings, context):
+        if self.model == "fails-first":
+            import httpx
+            from openai import RateLimitError
+
+            request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+            response = httpx.Response(429, request=request)
+            raise RateLimitError("rate limited", response=response, body=None)
+        return _canned_feedback(
+            [
+                LLMCorrection(
+                    category="vocab",
+                    start_offset=0,
+                    end_offset=4,
+                    original_text="good",
+                    suggested_text="commendable",
+                    explanation="A stronger word choice.",
+                    definition="Deserving praise.",
+                    example_sentence="Her commendable effort paid off.",
+                )
+            ]
+        )
+
+
+def test_new_document_is_not_orphaned_if_persistence_fails_after_a_provider_failover(db_session, user, monkeypatch):
+    # Two providers configured: the first one fails over (rate-limited),
+    # which used to trigger a premature commit of the not-yet-persisted
+    # Document (see app/ai/failover.py's cooldown-tracking commit vs.
+    # editor_create's old add()+flush() ordering). Something in the
+    # persistence phase then fails for an unrelated reason - the whole
+    # request should roll back cleanly with nothing left in the DB, not
+    # leave a Document row with zero versions behind.
+    db_session.add(
+        models.AISettings(
+            user_id=user.id, provider="groq", encrypted_api_key=encrypt_api_key("k1"),
+            model_name="fails-first", base_url="https://api.groq.com/openai/v1", priority=0,
+        )
+    )
+    db_session.add(
+        models.AISettings(
+            user_id=user.id, provider="groq", encrypted_api_key=encrypt_api_key("k2"),
+            model_name="succeeds-second", base_url="https://api.groq.com/openai/v1", priority=1,
+        )
+    )
+    db_session.commit()
+
+    monkeypatch.setattr(service, "check_text", lambda text: [])
+    monkeypatch.setattr(service, "OpenAICompatibleProvider", _FirstProviderRateLimitedThenVocabProvider)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated downstream failure")
+
+    monkeypatch.setattr(service, "upsert_suggested_word", _boom)
+
+    # Mirrors how app/documents/routes.py's editor_create now constructs a
+    # brand-new Document: built in memory, not yet added to the session.
+    document = models.Document(user_id=user.id, type=models.DocumentType.essay, title="New essay")
+
+    try:
+        service.submit_version(db_session, document, "word " * 25)
+        raise AssertionError("expected the simulated downstream failure to propagate")
+    except RuntimeError:
+        pass
+
+    # Mirrors app/db/session.py's get_db(): a request that raises never
+    # commits, and the session is simply closed - which rolls back
+    # anything flushed-but-uncommitted. Without an explicit rollback here,
+    # this same still-open test session would still see its own
+    # uncommitted flush and the assertion below would pass even with the
+    # bug present.
+    db_session.rollback()
+
+    assert db_session.query(models.Document).filter(models.Document.user_id == user.id).count() == 0

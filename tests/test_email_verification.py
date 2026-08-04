@@ -136,6 +136,50 @@ def test_unverified_user_can_still_log_in(client, unverified_user):
     assert response.headers["location"] == "/"
 
 
+def test_resend_verification_sends_a_new_email(client, db_session, unverified_user, fake_email_sender):
+    unverified_user.password_hash = hash_password("correct-horse-battery-staple")
+    _login(client, unverified_user.email, "correct-horse-battery-staple")
+    token = client.cookies.get("csrf_token")
+
+    response = client.post("/resend-verification", data={"csrf_token": token}, follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/?verification=sent"
+    assert len(fake_email_sender.sent) == 1
+
+
+def test_resend_verification_is_rate_limited_by_cooldown(client, db_session, unverified_user, fake_email_sender):
+    unverified_user.password_hash = hash_password("correct-horse-battery-staple")
+    _login(client, unverified_user.email, "correct-horse-battery-staple")
+    token = client.cookies.get("csrf_token")
+
+    client.post("/resend-verification", data={"csrf_token": token}, follow_redirects=False)
+    second = client.post("/resend-verification", data={"csrf_token": token}, follow_redirects=False)
+
+    assert second.status_code == 303
+    assert second.headers["location"] == "/?verification=cooldown"
+    assert len(fake_email_sender.sent) == 1  # cooldown blocked the second send
+
+
+def test_resend_verification_requires_login(client):
+    token = _get_csrf(client, "/login")
+    response = client.post("/resend-verification", data={"csrf_token": token}, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+
+
+def test_resend_verification_is_a_noop_for_already_verified_users(client, user, fake_email_sender):
+    user.password_hash = hash_password("correct-horse-battery-staple")
+    _login(client, user.email, "correct-horse-battery-staple")
+    token = client.cookies.get("csrf_token")
+
+    response = client.post("/resend-verification", data={"csrf_token": token}, follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert len(fake_email_sender.sent) == 0
+
+
 def test_verified_user_can_create_essay(client, user):
     user.password_hash = hash_password("correct-horse-battery-staple")
     _login(client, user.email, "correct-horse-battery-staple")

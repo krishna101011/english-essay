@@ -1,6 +1,6 @@
 import pytest
 
-from app.ai.crypto import encrypt_api_key
+from app.ai.crypto import encrypt_api_key, mask_api_key
 from app.ai.registry import PROVIDER_REGISTRY
 from app.auth.security import hash_password
 from app.db import models
@@ -69,7 +69,12 @@ def test_settings_page_placeholder_matches_registry_for_default_provider(client,
     assert f'placeholder="e.g. {expected}"' in response.text
 
 
-def test_settings_page_placeholder_matches_registry_for_groq_provider(client, db_session, user):
+def test_settings_page_lists_existing_provider_and_add_form_stays_registry_default(client, db_session, user):
+    # The "add another provider" form is always a blank, provider-agnostic
+    # form now (settings support a prioritized list, not a single
+    # save/overwrite row) - it should keep defaulting to the registry's
+    # first provider regardless of what's already configured. What actually
+    # needs to reflect an existing groq row is the providers list below it.
     user.password_hash = hash_password("correct-horse-battery-staple")
     ai_settings = models.AISettings(
         user_id=user.id,
@@ -86,10 +91,14 @@ def test_settings_page_placeholder_matches_registry_for_groq_provider(client, db
     response = client.get("/settings")
 
     assert response.status_code == 200
-    expected = PROVIDER_REGISTRY["groq"]["example_model"]
-    assert f'placeholder="e.g. {expected}"' in response.text
-    # Every <option> should also carry its own model as a data attribute -
-    # this is what settings.js reads on provider change, so the dynamic
-    # (JS-driven) placeholder update stays sourced from the same registry
-    # value too, not a second hardcoded copy.
-    assert f'data-example-model="{expected}"' in response.text
+    assert "llama-3.3-70b-versatile" in response.text
+    assert mask_api_key("sk-fake-key") in response.text
+
+    default_expected = PROVIDER_REGISTRY["gemini"]["example_model"]
+    assert f'placeholder="e.g. {default_expected}"' in response.text
+    # Every <option> in the add-provider select should still carry its own
+    # model as a data attribute - this is what settings.js reads on
+    # provider change, so the dynamic (JS-driven) placeholder update stays
+    # sourced from the same registry value too, not a second hardcoded copy.
+    groq_expected = PROVIDER_REGISTRY["groq"]["example_model"]
+    assert f'data-example-model="{groq_expected}"' in response.text

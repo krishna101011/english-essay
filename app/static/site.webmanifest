@@ -1,0 +1,16 @@
+{
+    "name": "English Essay Coach",
+    "short_name": "Essay Coach",
+    "description": "AI-assisted feedback and a writing coach for English essays and book-chapter reflections.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#f8fafc",
+    "theme_color": "#4f46e5",
+    "icons": [
+        {
+            "src": "/static/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}

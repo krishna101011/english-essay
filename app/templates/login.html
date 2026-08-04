@@ -4,7 +4,7 @@
 <div class="max-w-sm mx-auto bg-white border border-slate-200 rounded-lg p-6">
     <h1 class="text-xl font-semibold mb-4">Log in</h1>
     {% if error %}
-    <p class="text-red-600 text-sm mb-4">{{ error }}</p>
+    <p class="text-red-600 text-sm mb-4" role="alert">{{ error }}</p>
     {% endif %}
     <form method="post" action="/login" class="space-y-4">
         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">

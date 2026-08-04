@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}How it works — English Essay Coach{% endblock %}
+{% block meta %}
+<meta name="description" content="See exactly how English Essay Coach checks your writing: local grammar checking, AI feedback anchored to your text, revision comparison, and progress tracking.">
+<link rel="canonical" href="{{ request.base_url }}how-it-works">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How it works — English Essay Coach">
+<meta property="og:description" content="From submitting an essay to tracking your progress: how the feedback pipeline works, step by step.">
+<meta property="og:url" content="{{ request.base_url }}how-it-works">
+{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold">How it works</h1>
+
+    <ol class="space-y-5">
+        <li class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">1. Write or paste your essay</h2>
+            <p class="text-sm text-slate-600">
+                Submit an essay or a book-chapter reflection. We autosave your draft as you type, so a
+                lost connection or an accidental tab close won't cost you your work.
+            </p>
+        </li>
+        <li class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">2. Instant local grammar check</h2>
+            <p class="text-sm text-slate-600">
+                A local grammar and spelling checker runs first and flags spelling, punctuation, and
+                basic grammar issues in seconds — no AI provider required for this step.
+            </p>
+        </li>
+        <li class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">3. AI feedback on structure &amp; vocabulary</h2>
+            <p class="text-sm text-slate-600">
+                If you've connected an AI provider, it reviews sentence structure and word choice, and
+                scores your essay against four rubric dimensions: grammar, vocabulary, structure, and
+                clarity. Every suggestion is anchored to the exact text it refers to, so clicking a
+                suggestion jumps you straight to it in the editor.
+            </p>
+        </li>
+        <li class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">4. Apply, ignore, or revise</h2>
+            <p class="text-sm text-slate-600">
+                Apply a suggestion directly, ignore it, or rewrite the passage yourself. When you
+                resubmit, we compare your new version against the last one so you can see exactly what
+                changed.
+            </p>
+        </li>
+        <li class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">5. Track your progress over time</h2>
+            <p class="text-sm text-slate-600">
+                Your progress dashboard shows your weekly average score trend and flags mistake
+                categories that keep recurring — never from a single slip-up, only real patterns — with
+                practice exercises generated from exactly those categories.
+            </p>
+        </li>
+    </ol>
+
+    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-5 text-sm text-slate-700">
+        Curious about the grading itself? Read our <a href="/methodology" class="text-indigo-700 underline">feedback methodology</a>,
+        or <a href="/example-feedback" class="text-indigo-700 underline">view a sample feedback report</a> before signing up.
+    </div>
+</div>
+{% endblock %}

@@ -1,7 +1,10 @@
 import shutil
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from functools import lru_cache
 
 import language_tool_python
+
+from app.config import LANGUAGE_TOOL_TIMEOUT_SECONDS
 
 JAVA_MISSING_MESSAGE = (
     "LanguageTool requires a local Java runtime (Java 17+), but no `java` "
@@ -19,6 +22,13 @@ class JavaNotFoundError(RuntimeError):
     pass
 
 
+class GrammarTimeoutError(RuntimeError):
+    pass
+
+
+_CHECK_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="language-tool")
+
+
 @lru_cache
 def _get_tool() -> "language_tool_python.LanguageTool":
     if shutil.which("java") is None:
@@ -31,7 +41,14 @@ def check_text(text: str) -> list[dict]:
     `corrections` table (minus `source`, which callers set to "local")."""
     tool = _get_tool()
     findings = []
-    for match in tool.check(text):
+    # LanguageTool's Python wrapper has no dependable per-check timeout. A
+    # bounded wait lets the request degrade gracefully rather than hanging.
+    future = _CHECK_EXECUTOR.submit(tool.check, text)
+    try:
+        matches = future.result(timeout=LANGUAGE_TOOL_TIMEOUT_SECONDS)
+    except TimeoutError as exc:
+        raise GrammarTimeoutError("Local grammar check timed out.") from exc
+    for match in matches:
         start = match.offset
         end = match.offset + match.error_length
         category = _CATEGORY_MAP.get(match.category, "grammar")

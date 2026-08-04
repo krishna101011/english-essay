@@ -1,39 +1,139 @@
 {% extends "base.html" %}
 {% block title %}Vocabulary{% endblock %}
 {% block content %}
-<div class="space-y-4">
+<div class="space-y-6">
     <h1 class="text-xl font-semibold">Your vocabulary library</h1>
+
+    <form method="get" action="/vocab" class="flex gap-2" role="search">
+        <label for="vocab-search" class="sr-only">Search your vocabulary</label>
+        <input
+            id="vocab-search"
+            type="search"
+            name="q"
+            value="{{ q }}"
+            placeholder="Search words..."
+            class="flex-1 border border-slate-300 rounded px-3 py-2 text-sm"
+        >
+        <button type="submit" class="bg-slate-100 text-slate-700 rounded px-4 py-2 text-sm font-medium hover:bg-slate-200">Search</button>
+    </form>
+
+    <details class="bg-white border border-slate-200 rounded-lg p-4">
+        <summary class="cursor-pointer font-medium text-sm">Add a word</summary>
+        <form method="post" action="/vocab" class="mt-3 space-y-2">
+            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+            {% if form_error %}
+            <p class="text-sm text-red-600" role="alert">{{ form_error }}</p>
+            {% endif %}
+            <div>
+                <label for="new-word" class="block text-xs font-medium text-slate-600">Word</label>
+                <input id="new-word" name="word" required maxlength="100" class="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label for="new-definition" class="block text-xs font-medium text-slate-600">Definition</label>
+                <textarea id="new-definition" name="definition" required maxlength="2000" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm"></textarea>
+            </div>
+            <div>
+                <label for="new-example" class="block text-xs font-medium text-slate-600">Example sentence</label>
+                <textarea id="new-example" name="example_sentence" required maxlength="2000" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm"></textarea>
+            </div>
+            <div>
+                <label for="new-notes" class="block text-xs font-medium text-slate-600">Notes (optional)</label>
+                <textarea id="new-notes" name="notes" maxlength="2000" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm"></textarea>
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700">Save word</button>
+        </form>
+    </details>
 
     {% if not words %}
     <p class="text-slate-500">
-        No words yet. Words the AI suggests as upgrades in your essays will show up here.
+        {% if q %}No words match "{{ q }}".{% else %}No words yet. Save words the AI suggests, or add your own above.{% endif %}
     </p>
     {% else %}
     <div class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200">
         {% for w in words %}
-        <div class="flex items-start justify-between gap-4 px-4 py-3 {% if w.mastered %}opacity-60{% endif %}">
-            <div>
-                <p class="font-medium">
-                    {{ w.word }}
-                    {% if w.times_suggested > 1 %}
-                    <span class="text-xs font-normal text-slate-400">suggested {{ w.times_suggested }}x</span>
+        <div class="px-4 py-3 {% if w.mastered %}opacity-60{% endif %}">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-medium">
+                        {{ w.word }}
+                        {% if w.times_suggested > 1 %}
+                        <span class="text-xs font-normal text-slate-500">suggested {{ w.times_suggested }}x</span>
+                        {% endif %}
+                    </p>
+                    <p class="text-sm text-slate-600">{{ w.definition }}</p>
+                    <p class="text-sm text-slate-500 italic">"{{ w.example_sentence }}"</p>
+                    {% if w.notes %}
+                    <p class="text-xs text-slate-500 mt-1">Notes: {{ w.notes }}</p>
                     {% endif %}
-                </p>
-                <p class="text-sm text-slate-600">{{ w.definition }}</p>
-                <p class="text-sm text-slate-400 italic">"{{ w.example_sentence }}"</p>
+                    <p class="text-xs text-slate-500 mt-1">
+                        {% if w.last_reviewed_at %}Last reviewed {{ w.last_reviewed_at.strftime("%Y-%m-%d") }}{% else %}Not reviewed yet{% endif %}
+                    </p>
+                </div>
+                <div class="flex flex-row sm:flex-col flex-wrap items-start sm:items-end gap-1.5 shrink-0">
+                    <form method="post" action="/vocab/{{ w.id }}/toggle-mastered">
+                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                        <button
+                            type="submit"
+                            class="text-xs font-medium rounded px-3 py-1.5 {% if w.mastered %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}"
+                        >
+                            {% if w.mastered %}Mastered ✓{% else %}Mark mastered{% endif %}
+                        </button>
+                    </form>
+                    <div class="flex gap-1.5 flex-wrap">
+                        <form method="post" action="/vocab/{{ w.id }}/review">
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <button type="submit" class="text-xs font-medium rounded px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200">Reviewed</button>
+                        </form>
+                        <form
+                            method="post"
+                            action="/vocab/{{ w.id }}/delete"
+                            data-confirm-title="Remove this word?"
+                            data-confirm-message='Remove &quot;{{ w.word }}&quot; from your vocabulary library? This cannot be undone.'
+                            data-confirm-accept="Remove word"
+                        >
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <button type="submit" class="text-xs font-medium rounded px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100">
+                                Delete<span class="sr-only"> "{{ w.word }}"</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <form method="post" action="/vocab/{{ w.id }}/toggle-mastered">
-                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-                <button
-                    type="submit"
-                    class="text-xs font-medium rounded px-3 py-1.5 {% if w.mastered %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}"
-                >
-                    {% if w.mastered %}Mastered ✓{% else %}Mark mastered{% endif %}
-                </button>
-            </form>
+            <details class="mt-2">
+                <summary class="cursor-pointer text-xs text-indigo-700">Edit</summary>
+                <form method="post" action="/vocab/{{ w.id }}/edit" class="mt-2 space-y-2">
+                    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                    <label class="block text-xs font-medium text-slate-600">Definition
+                        <textarea name="definition" required maxlength="2000" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">{{ w.definition }}</textarea>
+                    </label>
+                    <label class="block text-xs font-medium text-slate-600">Example sentence
+                        <textarea name="example_sentence" required maxlength="2000" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">{{ w.example_sentence }}</textarea>
+                    </label>
+                    <label class="block text-xs font-medium text-slate-600">Notes
+                        <textarea name="notes" maxlength="2000" rows="2" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">{{ w.notes or "" }}</textarea>
+                    </label>
+                    <button type="submit" class="bg-indigo-600 text-white rounded px-3 py-1.5 text-xs font-medium hover:bg-indigo-700">Save changes</button>
+                </form>
+            </details>
         </div>
         {% endfor %}
     </div>
+
+    {% if total_pages > 1 %}
+    <nav class="flex items-center justify-between text-sm" aria-label="Vocabulary pages">
+        {% if page > 1 %}
+        <a href="/vocab?q={{ q }}&page={{ page - 1 }}" class="text-indigo-700 hover:underline">&larr; Previous</a>
+        {% else %}
+        <span></span>
+        {% endif %}
+        <span class="text-slate-500">Page {{ page }} of {{ total_pages }} ({{ total }} words)</span>
+        {% if page < total_pages %}
+        <a href="/vocab?q={{ q }}&page={{ page + 1 }}" class="text-indigo-700 hover:underline">Next &rarr;</a>
+        {% else %}
+        <span></span>
+        {% endif %}
+    </nav>
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %}

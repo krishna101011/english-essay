@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}English Essay Coach — AI-assisted feedback for student writers{% endblock %}
+{% block meta %}
+<meta name="description" content="Get instant grammar, vocabulary, and structure feedback on your essays and book-chapter reflections. Track your progress, build a vocabulary notebook, and practice your weak spots — free to use with your own AI provider key.">
+<link rel="canonical" href="{{ request.base_url }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="English Essay Coach — AI-assisted feedback for student writers">
+<meta property="og:description" content="Instant grammar, vocabulary, and structure feedback, plus a progress dashboard, vocabulary notebook, and practice exercises.">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary">
+{% endblock %}
+{% block content %}
+<div class="space-y-16">
+    <section class="text-center py-8 sm:py-12">
+        <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 max-w-2xl mx-auto">
+            Write better essays, one revision at a time.
+        </h1>
+        <p class="text-slate-600 mt-4 max-w-xl mx-auto">
+            Submit an essay or book-chapter reflection and get grammar, punctuation, and vocabulary
+            corrections in seconds, plus AI feedback on structure and clarity — anchored right where
+            it applies in your text.
+        </p>
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a href="/signup" class="bg-indigo-600 text-white rounded px-6 py-3 font-medium hover:bg-indigo-700">Get started free</a>
+            <a href="/how-it-works" class="border border-slate-300 text-slate-700 rounded px-6 py-3 font-medium hover:bg-slate-50">See how it works</a>
+        </div>
+        <p class="text-xs text-slate-500 mt-4">
+            <a href="/example-feedback" class="underline hover:text-indigo-700">View a sample feedback report</a> — no account needed.
+        </p>
+    </section>
+
+    <section class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">Grammar &amp; vocabulary feedback</h2>
+            <p class="text-sm text-slate-600">
+                A local grammar checker catches spelling and punctuation instantly; AI feedback adds
+                sentence-structure and vocabulary suggestions, each anchored to the exact text it refers to.
+            </p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">Progress dashboard</h2>
+            <p class="text-sm text-slate-600">
+                Watch your weekly average score trend over time and see which mistake categories keep
+                recurring, so you know exactly what to work on next.
+            </p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">Vocabulary notebook</h2>
+            <p class="text-sm text-slate-600">
+                Save words the AI suggests — or add your own — with definitions and example sentences,
+                and mark them mastered as you learn them.
+            </p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">Practice exercises</h2>
+            <p class="text-sm text-slate-600">
+                Short exercises generated from your own recurring mistakes, with answers hidden until
+                you submit or choose to reveal them.
+            </p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">Goals &amp; streaks</h2>
+            <p class="text-sm text-slate-600">
+                Set a weekly writing goal and track a streak of the days you've written, calculated in
+                your own timezone.
+            </p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+            <h2 class="font-semibold mb-1">Bring your own AI key</h2>
+            <p class="text-sm text-slate-600">
+                Connect a free-tier API key from a supported provider. It's encrypted at rest and never
+                shown back to you in full.
+            </p>
+        </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-6 text-center">
+        <h2 class="font-semibold text-lg mb-2">Ready to see your next essay improve?</h2>
+        <p class="text-sm text-slate-600 mb-4">Free to use. Read about our <a href="/methodology" class="text-indigo-700 underline">feedback methodology</a> and <a href="/privacy" class="text-indigo-700 underline">how we handle your writing</a>.</p>
+        <a href="/signup" class="inline-block bg-indigo-600 text-white rounded px-6 py-3 font-medium hover:bg-indigo-700">Create a free account</a>
+    </section>
+</div>
+{% endblock %}

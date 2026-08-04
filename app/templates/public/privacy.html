@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Privacy and AI data use — English Essay Coach{% endblock %}
+{% block meta %}
+<meta name="description" content="What English Essay Coach stores, what gets sent to your connected AI provider, how your API key is protected, and how to delete your account and data.">
+<link rel="canonical" href="{{ request.base_url }}privacy">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Privacy and AI data use — English Essay Coach">
+<meta property="og:description" content="What we store, what your AI provider sees, and how to delete everything.">
+<meta property="og:url" content="{{ request.base_url }}privacy">
+{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold">Privacy and AI data use</h1>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-2">
+        <h2 class="font-semibold">What we store</h2>
+        <p class="text-sm text-slate-600">
+            Your account email and password (hashed, never stored in plain text), the essays and
+            book-chapter reflections you submit and every version of them, the corrections and scores
+            generated for each version, any vocabulary words you save, your practice exercises and
+            goal/streak settings, and — if you connect one — your AI provider API key, encrypted at
+            rest and never shown back to you in full.
+        </p>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-2">
+        <h2 class="font-semibold">What your AI provider sees</h2>
+        <p class="text-sm text-slate-600">
+            If you connect an AI provider, submitting an essay sends its text (plus the local grammar
+            checker's findings) to that provider's API, using your own API key, to generate
+            sentence-structure/vocabulary suggestions and rubric scores. AI-generated practice
+            exercises are the exception: they're built from category names only (e.g. "grammar",
+            "vocabulary") — never your essay text.
+        </p>
+        <p class="text-sm text-slate-600">
+            Supported providers use fixed, HTTPS-only endpoints we control; a custom endpoint is only
+            available where the operator has explicitly enabled it, and even then it must resolve to a
+            public HTTPS address — never a local or internal one. Provider requests use your key
+            directly; we don't inspect or log the content of the response beyond what's needed to save
+            your corrections and scores, and error messages shown to you never include the provider's
+            raw request details.
+        </p>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-2">
+        <h2 class="font-semibold">What we don't do</h2>
+        <ul class="text-sm text-slate-600 list-disc pl-5 space-y-1">
+            <li>We don't sell your writing or personal data.</li>
+            <li>We don't run third-party analytics or advertising trackers on this site.</li>
+            <li>We don't send your API key anywhere other than the provider you configured it for.</li>
+        </ul>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-2">
+        <h2 class="font-semibold">Deleting your account</h2>
+        <p class="text-sm text-slate-600">
+            From Settings, you can permanently delete your account. This removes your essays and every
+            version of them, corrections, scores, vocabulary words, drafts, goals, streak history,
+            practice exercises, and AI provider settings. This action is immediate and cannot be undone,
+            which is why it requires re-entering your password and typing your account email to confirm.
+        </p>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-2">
+        <h2 class="font-semibold">Security measures</h2>
+        <p class="text-sm text-slate-600">
+            Passwords are hashed, never stored in plain text. API keys are encrypted at rest. Sessions
+            use signed cookies. State-changing requests are protected against cross-site request
+            forgery. Sensitive values (tokens, API keys, passwords) are redacted from server logs.
+        </p>
+    </section>
+
+    <p class="text-xs text-slate-500">
+        Questions about your data? See the <a href="/help" class="text-indigo-700 underline">Help / FAQ</a> page,
+        or reach out through the account you used to sign up.
+    </p>
+</div>
+{% endblock %}

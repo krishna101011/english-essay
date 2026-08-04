@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.ai.crypto import decrypt_api_key
+from app.ai.failover import AllProvidersUnavailableError, NoAIProviderConfiguredError, call_with_failover
 from app.ai.provider import OpenAICompatibleProvider
+from app.ai.registry import resolve_provider_base_url
 from app.db.models import (
-    AISettings,
     Correction,
     CorrectionCategory,
     CorrectionSource,
@@ -19,8 +20,9 @@ from app.db.models import (
     utcnow,
 )
 from app.documents.diff import diff_paragraphs
-from app.grammar.checker import JavaNotFoundError, check_text
+from app.grammar.checker import GrammarTimeoutError, JavaNotFoundError, check_text
 from app.vocab.service import upsert_suggested_word
+from app.learning.activities import record_writing_activity
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,17 @@ class PipelineResult:
 class RewriteResult:
     rewrite: ModelRewrite | None
     error: str | None
+
+
+def _provider_factory(ai_settings):
+    # Referenced via this module's own name (not imported directly into
+    # call sites) so tests can keep doing
+    # monkeypatch.setattr(service, "OpenAICompatibleProvider", FakeProvider).
+    return OpenAICompatibleProvider(
+        api_key=decrypt_api_key(ai_settings.encrypted_api_key),
+        base_url=resolve_provider_base_url(ai_settings.provider, ai_settings.base_url or ""),
+        model=ai_settings.model_name,
+    )
 
 
 def submit_version(db: Session, document: Document, content: str) -> PipelineResult:
@@ -54,7 +67,7 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
     local_check_start = time.perf_counter()
     try:
         local_findings = check_text(content)
-    except JavaNotFoundError as exc:
+    except (JavaNotFoundError, GrammarTimeoutError) as exc:
         local_findings = []
         local_error = str(exc)
     logger.info("submit_version: local grammar check took %.3fs", time.perf_counter() - local_check_start)
@@ -85,28 +98,37 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
                         }
                     )
 
-    ai_settings = db.query(AISettings).filter(AISettings.user_id == document.user_id).first()
     ai_error = None
     feedback = None
-
-    if ai_settings is None:
+    ai_call_start = time.perf_counter()
+    try:
+        feedback = call_with_failover(
+            db,
+            document.user_id,
+            _provider_factory,
+            lambda provider: provider.analyze(content, {"local_findings": local_findings}, context),
+        )
+    except NoAIProviderConfiguredError:
         ai_error = "No AI provider configured. Add one in Settings to get sentence-structure and vocabulary feedback."
-    else:
-        ai_call_start = time.perf_counter()
-        try:
-            provider = OpenAICompatibleProvider(
-                api_key=decrypt_api_key(ai_settings.encrypted_api_key),
-                base_url=ai_settings.base_url,
-                model=ai_settings.model_name,
-            )
-            feedback = provider.analyze(content, {"local_findings": local_findings}, context)
-        except Exception as exc:  # noqa: BLE001 - any provider/network failure must degrade gracefully
-            ai_error = f"AI feedback unavailable: {exc}"
-        finally:
-            logger.info("submit_version: AI provider call took %.3fs", time.perf_counter() - ai_call_start)
+    except AllProvidersUnavailableError as exc:
+        if exc.timed_out:
+            ai_error = "AI feedback timed out. Your essay was saved; retry when your provider is available."
+        else:
+            ai_error = "AI feedback is unavailable. Your essay was saved; check Settings and retry."
+    finally:
+        logger.info("submit_version: AI provider call took %.3fs", time.perf_counter() - ai_call_start)
 
     # --- persistence phase: everything above is already computed, so
     # this is just a short burst of inserts before an immediate commit. ---
+
+    # A no-op for an already-persistent document (the revision path); for a
+    # brand-new one (the create path), this is deliberately the first time
+    # it's added/flushed - only now, after the AI call has already
+    # returned, so nothing sits half-written in the transaction while that
+    # call (or the failover module's own small cooldown-tracking commit) is
+    # in flight.
+    db.add(document)
+    db.flush()
 
     version = DocumentVersion(document_id=document.id, content=content, version_number=next_version_number)
     db.add(version)
@@ -202,6 +224,10 @@ def submit_version(db: Session, document: Document, content: str) -> PipelineRes
             )
         )
 
+    # A successful persisted version counts even if either feedback system
+    # timed out; it is recorded in this same transaction as the version.
+    record_writing_activity(db, document.user_id, version.id, content)
+
     db.commit()
     db.refresh(version)
     return PipelineResult(version=version, ai_error=ai_error, local_error=local_error)
@@ -211,26 +237,21 @@ def get_or_create_rewrite(db: Session, version: DocumentVersion, user_id: int, f
     if not force and version.model_rewrite is not None:
         return RewriteResult(rewrite=version.model_rewrite, error=None)
 
-    ai_settings = db.query(AISettings).filter(AISettings.user_id == user_id).first()
-    if ai_settings is None:
+    # Nothing above this line is a write (just attribute reads), so no
+    # write lock is held while we wait on the AI call here - keep it that
+    # way. db.add()/commit only happen below, once we already have the
+    # content in hand (call_with_failover's own cooldown-marking commit is
+    # a small, isolated, single-row write and doesn't change that).
+    try:
+        content = call_with_failover(db, user_id, _provider_factory, lambda provider: provider.rewrite(version.content))
+    except NoAIProviderConfiguredError:
         return RewriteResult(
             rewrite=version.model_rewrite,
             error="No AI provider configured. Add one in Settings to generate a model rewrite.",
         )
-
-    # Nothing above this line is a write (just attribute reads and a
-    # SELECT), so no write lock is held while we wait on the AI call here -
-    # keep it that way. db.add()/commit only happen below, once we already
-    # have the content in hand.
-    try:
-        provider = OpenAICompatibleProvider(
-            api_key=decrypt_api_key(ai_settings.encrypted_api_key),
-            base_url=ai_settings.base_url,
-            model=ai_settings.model_name,
-        )
-        content = provider.rewrite(version.content)
-    except Exception as exc:  # noqa: BLE001 - any provider/network failure must degrade gracefully
-        return RewriteResult(rewrite=version.model_rewrite, error=f"Model rewrite unavailable: {exc}")
+    except AllProvidersUnavailableError as exc:
+        error = "Model rewrite timed out. Please try again." if exc.timed_out else "Model rewrite is unavailable. Check Settings and try again."
+        return RewriteResult(rewrite=version.model_rewrite, error=error)
 
     if version.model_rewrite is not None:
         version.model_rewrite.content = content

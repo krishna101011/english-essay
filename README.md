@@ -45,10 +45,10 @@ instead of guessing.
 start.bat
 ```
 
-`start.bat` starts the server in the foreground - keep that window open, since
-there's no real email sending locally and verification/reset links print to
-this terminal instead (see `app/email/sender.py`) - and opens your browser to
-http://localhost:8000 once the server is actually responding.
+`start.bat` starts the server in the foreground and opens your browser to
+http://localhost:8000 once the server is actually responding. Configure SMTP
+to exercise verification and password-reset links locally: email bodies are
+intentionally never printed to logs because they contain one-time tokens.
 
 Sign up, then add an AI provider under Settings before submitting an essay
 (the app works without one, but you'll only get local

@@ -11,6 +11,36 @@ top of it — every new state-changing route below also carries
 
 ## What was built
 
+### Phase 1 production safety follow-up
+
+- **Shared rate-limit storage:** development defaults to `memory://`; every
+  `APP_ENV=production` startup now requires `RATE_LIMIT_STORAGE_URI` to be a
+  `redis://` or `rediss://` URL. Install the Python `redis` package from
+  `requirements.txt`, provision Redis separately, and keep its URL in the
+  deployment secret store. This prevents each Uvicorn worker from maintaining
+  a separate in-memory limit counter.
+- **Required production variables:** `SESSION_SECRET_KEY` must be an
+  unpredictable value at least 32 characters long, `ENCRYPTION_KEY` must be
+  a valid Fernet key, and `RATE_LIMIT_STORAGE_URI` must reference Redis. The
+  application fails startup rather than using defaults.
+- **Provider endpoints:** Gemini, Groq, and OpenRouter use server-defined
+  approved HTTPS URLs. Custom endpoints are disabled by default. A trusted
+  self-hosted operator may set `ALLOW_CUSTOM_AI_ENDPOINTS=true`; those URLs
+  must be HTTPS, contain no embedded credentials/query/fragment, resolve only
+  to public addresses, and are called with redirects disabled. Do not enable
+  this on hosted multi-tenant deployments; network egress controls remain the
+  final protection against DNS rebinding.
+- **Cost/reliability guardrails:** submissions, rewrites, and settings tests
+  are limited; titles, document content, model names, URLs, and request bodies
+  are capped. AI requests have a 30-second default timeout and LanguageTool
+  has a 15-second default timeout. Errors do not echo provider request details
+  or URLs, and an essay is saved even if either check times out.
+- **Browser defenses:** CSP, frame, MIME-sniffing, referrer, permissions, and
+  production HSTS headers are set centrally. Inline editor event handlers were
+  removed so executable script remains self-hosted (Tailwind's existing CDN
+  compiler is allow-listed temporarily; replace it with built local CSS before
+  imposing a CSP with no third-party style execution).
+
 ### Email
 
 - **`EmailSender` protocol** (`app/email/sender.py`): `send(to, subject,

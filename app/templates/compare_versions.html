@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Compare versions — {{ document.title }}{% endblock %}
+{% block content %}
+<div class="space-y-5">
+    <div class="flex items-center justify-between gap-3"><div><h1 class="text-xl font-semibold">Compare versions</h1><p class="text-sm text-slate-600">{{ document.title }} · version {{ before.version_number }} to {{ after.version_number }}</p></div><a class="text-indigo-700 underline text-sm" href="/documents/{{ document.id }}">Back to essay</a></div>
+    {% if error %}<p class="bg-red-50 border border-red-200 text-red-800 rounded p-3" role="alert">{{ error }}</p>{% endif %}
+    <div class="bg-white border border-slate-200 rounded-lg p-5">
+        <p class="text-sm text-slate-600 mb-3"><span class="font-medium text-red-700">Removed</span> text is from the earlier version. <span class="font-medium text-emerald-700">Added</span> text appears in the later version.</p>
+        <div class="space-y-2 whitespace-pre-wrap leading-relaxed text-sm" aria-label="Version comparison">
+        {% for segment in segments %}
+            <div class="{% if segment.kind == 'removed' %}bg-red-50 border-l-4 border-red-400 text-red-900{% elif segment.kind == 'added' %}bg-emerald-50 border-l-4 border-emerald-500 text-emerald-900{% else %}text-slate-700{% endif %} px-3 py-2"><span class="font-medium text-xs">{% if segment.kind == 'removed' %}Removed{% elif segment.kind == 'added' %}Added{% else %}Unchanged{% endif %}</span><br>{{ segment.text }}</div>
+        {% endfor %}
+        </div>
+    </div>
+    <form method="post" action="/documents/{{ document.id }}/versions/{{ before.id }}/restore-draft" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><input type="hidden" name="expected_revision" value="{{ draft.revision if draft else '' }}">
+        <p class="text-sm text-amber-900 mb-3">Restore version {{ before.version_number }} into your working draft. Submitted history and scores will not change until you choose to resubmit.</p>
+        <button class="bg-amber-700 text-white rounded px-4 py-2 text-sm font-medium" type="submit">Restore earlier version to draft</button>
+    </form>
+</div>
+{% endblock %}

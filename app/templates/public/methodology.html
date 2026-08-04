@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Feedback methodology — English Essay Coach{% endblock %}
+{% block meta %}
+<meta name="description" content="How English Essay Coach generates grammar, vocabulary, and structure feedback, what the rubric scores mean, and why AI scores are guidance rather than an objective grade.">
+<link rel="canonical" href="{{ request.base_url }}methodology">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Feedback methodology — English Essay Coach">
+<meta property="og:description" content="What checks your writing, how corrections are anchored, and what each rubric score means.">
+<meta property="og:url" content="{{ request.base_url }}methodology">
+{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold">Feedback methodology</h1>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-2">
+        <h2 class="font-semibold">Two feedback layers</h2>
+        <p class="text-sm text-slate-600">
+            <strong>Local checker:</strong> spelling, punctuation, and basic grammar are checked by a
+            local grammar-checking engine, immediately and without sending your text to any AI provider.
+        </p>
+        <p class="text-sm text-slate-600">
+            <strong>AI feedback:</strong> if you've connected an AI provider, it reviews sentence
+            structure and vocabulary — deliberately not re-flagging what the local checker already
+            caught — and produces the four rubric scores below. On a revision, it's only asked to review
+            the paragraphs that changed since your last submission, to keep feedback focused and fast.
+        </p>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
+        <h2 class="font-semibold">Rubric dimensions (0–100 each)</h2>
+        <ul class="text-sm text-slate-600 space-y-2 list-disc pl-5">
+            <li><strong>Grammar:</strong> correctness of sentence-level grammar beyond simple spelling/punctuation slips.</li>
+            <li><strong>Vocabulary:</strong> word choice — variety, precision, and appropriateness for the register of the piece.</li>
+            <li><strong>Structure:</strong> paragraph organization, transitions, and how well the essay is put together as a whole.</li>
+            <li><strong>Clarity:</strong> how easy the writing is to follow and understand on a first read.</li>
+        </ul>
+        <p class="text-sm text-slate-600">
+            Roughly: <strong>85–100</strong> is a strong foundation, <strong>70–84</strong> is developing
+            well, <strong>50–69</strong> marks a useful next step, and <strong>below 50</strong> is a
+            small starting point to build from. Each score comes with a "next best action" pointing at
+            the single lowest-scoring dimension.
+        </p>
+    </section>
+
+    <section class="bg-amber-50 border border-amber-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-1">AI scores are guidance, not a grade</h2>
+        <p class="text-sm text-slate-700">
+            These scores are produced by a general-purpose AI model and are meant to guide revision —
+            they are not an objective or authoritative grade, they can vary between submissions of
+            similar quality, and they should not be treated as equivalent to a teacher's assessment.
+        </p>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-lg p-5">
+        <h2 class="font-semibold mb-1">Which AI provider is used?</h2>
+        <p class="text-sm text-slate-600">
+            You bring your own API key from a supported provider. See <a href="/privacy" class="text-indigo-700 underline">Privacy and AI data use</a>
+            for exactly what gets sent to it and how your key is protected.
+        </p>
+    </section>
+</div>
+{% endblock %}

@@ -2,7 +2,7 @@
 {% block title %}History{% endblock %}
 {% block content %}
 <div class="space-y-4">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-2">
         <h1 class="text-xl font-semibold">Your documents</h1>
         <a href="/" class="bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700">New essay</a>
     </div>
@@ -10,35 +10,55 @@
     {% if chart_points|length > 1 %}
     <div class="bg-white border border-slate-200 rounded-lg p-5">
         <h2 class="font-semibold mb-3">Overall score over time</h2>
-        <div id="score-chart"></div>
+        <div id="score-chart" role="img" aria-label="Overall score over time, {{ chart_points|length }} submissions"></div>
+        <table class="sr-only">
+            <caption>Overall score by submission date</caption>
+            <thead><tr><th scope="col">Date</th><th scope="col">Essay</th><th scope="col">Score</th></tr></thead>
+            <tbody>
+                {% for p in chart_points %}
+                <tr><td>{{ p.date }}</td><td>{{ p.title }}</td><td>{{ p.score }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     <script id="score-chart-data" type="application/json">{{ chart_points | tojson }}</script>
     <script src="/static/dashboard.js"></script>
     {% endif %}
 
     {% if not rows %}
-    <p class="text-slate-500">No documents yet. <a class="text-indigo-700" href="/">Write your first essay</a>.</p>
+    <p class="text-slate-600">No documents yet. <a class="text-indigo-700 underline" href="/">Write your first essay</a>.</p>
     {% else %}
     <div class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200">
         {% for row in rows %}
-        <div class="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50">
             <a href="/documents/{{ row.document.id }}" class="flex-1 min-w-0">
-                <p class="font-medium">{{ row.document.title }}</p>
+                <p class="font-medium truncate">{{ row.document.title }}</p>
                 <p class="text-xs text-slate-500">
                     {{ row.document.type.value.replace("_", " ") }} · version {{ row.latest_version_number }} ·
                     created {{ row.document.created_at.strftime("%Y-%m-%d") }}
                 </p>
             </a>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
                 {% if row.score %}
                 <span class="text-lg font-semibold text-indigo-700">{{ "%.0f"|format(row.score.overall_score) }}</span>
                 {% else %}
-                <span class="text-xs text-slate-400">no score</span>
+                <span class="text-xs text-slate-500">no score</span>
                 {% endif %}
-                <form method="post" action="/documents/{{ row.document.id }}/delete"
-                      onsubmit="return confirm('Delete this essay permanently? This cannot be undone.');">
+                {% if row.latest_version_id %}
+                <a href="/documents/{{ row.document.id }}/versions/{{ row.latest_version_id }}/export.pdf"
+                   class="text-slate-500 hover:text-indigo-600 text-xs">Export PDF</a>
+                {% endif %}
+                <form
+                    method="post"
+                    action="/documents/{{ row.document.id }}/delete"
+                    data-confirm-title="Delete this essay?"
+                    data-confirm-message='Delete &quot;{{ row.document.title }}&quot; permanently? This cannot be undone.'
+                    data-confirm-accept="Delete essay"
+                >
                     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-                    <button class="text-slate-400 hover:text-red-600 text-xs" type="submit">Delete</button>
+                    <button class="text-slate-500 hover:text-red-600 text-xs" type="submit">
+                        Delete<span class="sr-only"> "{{ row.document.title }}"</span>
+                    </button>
                 </form>
             </div>
         </div>

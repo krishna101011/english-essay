@@ -13,11 +13,15 @@ class EmailSender(Protocol):
 
 
 class ConsoleEmailSender:
-    """Logs the email instead of sending it. Used automatically whenever
-    SMTP isn't configured (local dev, and every test in this suite)."""
+    """Records only delivery metadata when SMTP is not configured.
+
+    Email bodies often contain one-time reset or verification tokens and must
+    never be copied into logs. Tests use a dedicated fake sender to inspect
+    messages without writing secrets to a process log.
+    """
 
     def send(self, to: str, subject: str, body: str) -> None:
-        logger.info("EMAIL to=%s subject=%r\n%s", to, subject, body)
+        logger.info("EMAIL queued to=%s subject=%r body=[REDACTED]", to, subject)
 
 
 class SMTPEmailSender:

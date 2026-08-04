@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Help &amp; FAQ — English Essay Coach{% endblock %}
+{% block meta %}
+<meta name="description" content="Answers to common questions about English Essay Coach: AI providers, privacy, account verification, deleting your account, and how progress tracking works.">
+<link rel="canonical" href="{{ request.base_url }}help">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Help & FAQ — English Essay Coach">
+<meta property="og:description" content="Common questions about AI providers, privacy, verification, and your account.">
+<meta property="og:url" content="{{ request.base_url }}help">
+{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold">Help &amp; FAQ</h1>
+
+    <div class="space-y-3">
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">Do I need my own AI provider API key?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                You need one to get sentence-structure/vocabulary feedback, AI rubric scores, model
+                rewrites, and AI-generated practice exercises. The local grammar checker (spelling,
+                punctuation, basic grammar) works without one. Add a key any time in Settings — most
+                supported providers offer a free tier.
+            </p>
+        </details>
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">Is my writing kept private?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                Your essays are stored in your account only, and we don't run third-party analytics or
+                sell your data. If you connect an AI provider, your essay text is sent to that
+                provider's API using your own key to generate feedback. See
+                <a href="/privacy" class="text-indigo-700 underline">Privacy and AI data use</a> for the full picture.
+            </p>
+        </details>
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">Why do I need to verify my email?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                Verifying your email confirms it's really yours before you can start creating essays or
+                chapters — you can still log in beforehand. If you didn't get the email, use "Resend
+                verification email" on the editor page (there's a short cooldown between requests).
+            </p>
+        </details>
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">What does the "recurring mistakes" tracker mean?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                It only flags a category (like punctuation or sentence structure) once it's come up
+                several times recently — a single slip-up is never labeled a pattern. It's meant to
+                point you toward practice exercises that actually matter for your writing.
+            </p>
+        </details>
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">Are the AI scores an official grade?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                No — they're guidance to support revision, not an objective or authoritative grade. See
+                <a href="/methodology" class="text-indigo-700 underline">Feedback methodology</a> for what each score measures.
+            </p>
+        </details>
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">Can I delete my account?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                Yes, from Settings. Deletion is immediate, permanent, and removes everything tied to
+                your account. You'll need to re-enter your password and type your account email to
+                confirm, since this can't be undone.
+            </p>
+        </details>
+        <details class="bg-white border border-slate-200 rounded-lg p-4">
+            <summary class="font-medium cursor-pointer">Can I export my essay and its feedback?</summary>
+            <p class="text-sm text-slate-600 mt-2">
+                Yes — every submitted version has an "Export PDF" option that includes the essay text,
+                rubric scores, and every correction with its explanation.
+            </p>
+        </details>
+    </div>
+</div>
+{% endblock %}

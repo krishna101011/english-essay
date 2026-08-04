@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -13,10 +15,19 @@ from app.auth.tokens import (
     create_password_reset_token,
 )
 from app.ai.routes import render_settings_error
-from app.db.models import User
+from app.db.models import EmailVerificationToken, User
 from app.db.session import get_db
 from app.email.sender import get_email_sender
-from app.rate_limit import LOGIN_RATE_LIMIT, PASSWORD_RESET_REQUEST_RATE_LIMIT, SIGNUP_RATE_LIMIT, limiter
+from app.rate_limit import (
+    LOGIN_RATE_LIMIT,
+    PASSWORD_RESET_REQUEST_RATE_LIMIT,
+    RESEND_VERIFICATION_RATE_LIMIT,
+    SIGNUP_RATE_LIMIT,
+    get_user_or_ip,
+    limiter,
+)
+
+RESEND_VERIFICATION_COOLDOWN = timedelta(minutes=2)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -99,6 +110,37 @@ def verify_email(request: Request, token: str, db: Session = Depends(get_db)):
     user.email_verified = True
     db.commit()
     return templates.TemplateResponse(request, "verify_email.html", {"success": True})
+
+
+@router.post("/resend-verification")
+@limiter.limit(RESEND_VERIFICATION_RATE_LIMIT, key_func=get_user_or_ip)
+def resend_verification(
+    request: Request,
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    _csrf: None = Depends(verify_csrf),
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    if user.email_verified:
+        return RedirectResponse("/", status_code=303)
+
+    latest = (
+        db.query(EmailVerificationToken)
+        .filter(EmailVerificationToken.user_id == user.id)
+        .order_by(EmailVerificationToken.created_at.desc())
+        .first()
+    )
+    if latest is not None:
+        created_at = latest.created_at
+        if created_at.tzinfo is None:  # SQLite round-trips DateTime(timezone=True) as naive
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - created_at < RESEND_VERIFICATION_COOLDOWN:
+            return RedirectResponse("/?verification=cooldown", status_code=303)
+
+    _send_verification_email(request, db, user)
+    db.commit()
+    return RedirectResponse("/?verification=sent", status_code=303)
 
 
 @router.get("/login")
@@ -209,6 +251,7 @@ def reset_password_submit(
 def delete_account(
     request: Request,
     password: str = Form(...),
+    confirm_email: str = Form(...),
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
     _csrf: None = Depends(verify_csrf),
@@ -216,6 +259,10 @@ def delete_account(
     if user is None:
         return RedirectResponse("/login", status_code=303)
 
+    if confirm_email.strip().lower() != user.email.lower():
+        return render_settings_error(
+            request, db, user, "Typed email didn't match your account email. Your account was not deleted."
+        )
     if not verify_password(password, user.password_hash):
         return render_settings_error(request, db, user, "Incorrect password. Your account was not deleted.")
 

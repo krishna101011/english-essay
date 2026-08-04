@@ -5,6 +5,8 @@ from app import config as config_module
 
 def _reload_app_with_env(monkeypatch, app_env):
     monkeypatch.setenv("APP_ENV", app_env)
+    monkeypatch.setenv("SESSION_SECRET_KEY", "a" * 48)
+    monkeypatch.setenv("RATE_LIMIT_STORAGE_URI", "redis://localhost:6379/0")
     importlib.reload(config_module)
     from app import main as main_module
 
@@ -30,3 +32,12 @@ def test_development_keeps_docs_and_allows_http_cookies(monkeypatch):
 
     session_middleware = next(m for m in main_module.app.user_middleware if m.cls.__name__ == "SessionMiddleware")
     assert session_middleware.kwargs["https_only"] is False
+
+
+def test_production_rejects_default_session_secret(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SESSION_SECRET_KEY", "change-me")
+    monkeypatch.setenv("RATE_LIMIT_STORAGE_URI", "redis://localhost:6379/0")
+
+    with __import__("pytest").raises(RuntimeError, match="SESSION_SECRET_KEY"):
+        importlib.reload(config_module)

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Sample feedback report — English Essay Coach{% endblock %}
+{% block meta %}
+<meta name="description" content="A sample feedback report on a fictional student essay, showing how English Essay Coach highlights corrections, explains them, and scores writing across four rubric dimensions.">
+<link rel="canonical" href="{{ request.base_url }}example-feedback">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Sample feedback report — English Essay Coach">
+<meta property="og:description" content="See what feedback looks like on a fictional sample essay, before you sign up.">
+<meta property="og:url" content="{{ request.base_url }}example-feedback">
+{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-semibold">Sample feedback report</h1>
+        <p class="text-sm text-slate-600 mt-1">
+            This is a fictional example essay written for demonstration purposes only — it was not
+            submitted by a real student. It shows the kind of feedback, corrections, and scoring you'd
+            see after submitting your own essay.
+        </p>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-lg p-5" id="score">
+        <h2 class="font-semibold mb-3">Score — sample essay, version 1</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center mb-3">
+            <div class="bg-indigo-50 rounded p-2"><div class="text-2xl font-bold text-indigo-700">74</div><div class="text-xs text-slate-500">Overall</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">68</div><div class="text-xs text-slate-500">Grammar</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">72</div><div class="text-xs text-slate-500">Vocabulary</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">80</div><div class="text-xs text-slate-500">Structure</div></div>
+            <div class="bg-slate-50 rounded p-2"><div class="text-lg font-semibold">78</div><div class="text-xs text-slate-500">Clarity</div></div>
+        </div>
+        <p class="text-sm text-slate-700">
+            A clear, well-organized reflection with a strong closing paragraph. Tightening a few
+            run-on sentences and varying word choice in the middle section would strengthen it further.
+        </p>
+        <div class="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-700">
+            <p><strong>Developing well.</strong> AI scores are guidance for practice, not an objective grade.</p>
+            <p class="mt-2"><strong>Next best action — Grammar:</strong> Review the flagged run-on sentences below and practice joining clauses with a conjunction or semicolon.</p>
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-lg p-5" id="corrections">
+        <h2 class="font-semibold mb-3">Inline corrections</h2>
+        <div class="whitespace-pre-wrap font-mono text-sm border border-slate-200 rounded p-3 bg-slate-50 leading-relaxed">
+My favorite hobby is <mark class="rounded px-0.5 bg-yellow-100 border-b-2 border-yellow-400">gardening, it</mark> helps me relax after a long day at school. Last summer I planted tomatoes, peppers, and herbs in a small plot behind our house, <mark class="rounded px-0.5 bg-yellow-100 border-b-2 border-yellow-400">it</mark> was <mark class="rounded px-0.5 bg-yellow-100 border-b-2 border-yellow-400">alot</mark> of work but very rewarding. Watching something grow from a tiny seed into a plant I could actually eat felt <mark class="rounded px-0.5 bg-yellow-100 border-b-2 border-yellow-400">really good</mark>, and it taught me patience I didn't expect to learn from a garden.
+        </div>
+        <div class="mt-4 space-y-2 text-sm">
+            <article class="border border-slate-200 rounded p-3">
+                <p><strong>Sentence structure</strong>: <span class="line-through">gardening, it</span> → <span class="font-medium">gardening. It</span></p>
+                <p class="text-slate-600 mt-1">This is a comma splice — two complete sentences joined only by a comma. Split them with a period, or join them with a semicolon or conjunction.</p>
+            </article>
+            <article class="border border-slate-200 rounded p-3">
+                <p><strong>Sentence structure</strong>: <span class="line-through">house, it</span> → <span class="font-medium">house. It</span></p>
+                <p class="text-slate-600 mt-1">Another comma splice — the same fix applies: end the first sentence before starting the next.</p>
+            </article>
+            <article class="border border-slate-200 rounded p-3">
+                <p><strong>Spelling</strong>: <span class="line-through">alot</span> → <span class="font-medium">a lot</span></p>
+                <p class="text-slate-600 mt-1">"Alot" isn't a word — "a lot" is always written as two words.</p>
+            </article>
+            <article class="border border-slate-200 rounded p-3">
+                <p><strong>Vocabulary</strong>: <span class="line-through">really good</span> → <span class="font-medium">immensely satisfying</span></p>
+                <p class="text-slate-600 mt-1">"Really good" is vague and overused. A more precise, vivid phrase makes the sentence more memorable.</p>
+            </article>
+        </div>
+    </div>
+
+    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-5 text-center">
+        <p class="text-sm text-slate-700 mb-3">That's the same feedback format you'll see on your own writing.</p>
+        <a href="/signup" class="inline-block bg-indigo-600 text-white rounded px-6 py-3 font-medium hover:bg-indigo-700">Create a free account</a>
+    </div>
+</div>
+{% endblock %}

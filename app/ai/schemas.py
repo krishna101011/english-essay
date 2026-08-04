@@ -35,13 +35,17 @@ class EssayFeedback(BaseModel):
         return cls.model_validate(json.loads(content))
 
 
-def _essay_feedback_json_schema() -> dict:
-    schema = EssayFeedback.model_json_schema()
-    schema["additionalProperties"] = False
-    return schema
+class PracticeExerciseItem(BaseModel):
+    category: str = Field(description="One of the requested category names, echoed back exactly")
+    prompt: str = Field(max_length=1000, description="The exercise question shown to the student")
+    answer: str = Field(max_length=500, description="The single correct answer, used for exact-match grading")
+    explanation: str = Field(max_length=1000, description="Plain-English explanation of the rule being practiced")
 
 
-ESSAY_FEEDBACK_SCHEMA = {
-    "name": "essay_feedback",
-    "schema": _essay_feedback_json_schema(),
-}
+class PracticeExerciseBatch(BaseModel):
+    exercises: list[PracticeExerciseItem] = Field(default_factory=list, max_length=5)
+
+    @classmethod
+    def parse(cls, response) -> "PracticeExerciseBatch":
+        content = response.choices[0].message.content
+        return cls.model_validate(json.loads(content))

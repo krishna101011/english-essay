@@ -1,7 +1,16 @@
 from app.ai.crypto import encrypt_api_key
 from app.ai.schemas import EssayFeedback
+from app.auth.security import hash_password
 from app.db import models
 from app.documents import service
+
+
+def _login(client, email, password):
+    client.get("/login")
+    token = client.cookies.get("csrf_token")
+    return client.post(
+        "/login", data={"email": email, "password": password, "csrf_token": token}, follow_redirects=False
+    )
 
 
 class ContextCapturingProvider:
@@ -54,3 +63,47 @@ def test_book_chapter_document_passes_book_context_to_ai(db_session, user, monke
     assert context["type"] == "book_chapter"
     assert context["book_title"] == "Great Expectations"
     assert context["author"] == "Charles Dickens"
+
+
+def test_oversized_book_title_is_rejected(client, user):
+    user.password_hash = hash_password("correct-horse-battery-staple")
+    _login(client, user.email, "correct-horse-battery-staple")
+    token = client.cookies.get("csrf_token")
+
+    response = client.post(
+        "/",
+        data={
+            "title": "Chapter reflection",
+            "content": "word " * 25,
+            "doc_type": "book_chapter",
+            "book_title": "x" * 256,
+            "author": "Someone",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert "Book title must be" in response.text
+
+
+def test_oversized_author_is_rejected(client, user):
+    user.password_hash = hash_password("correct-horse-battery-staple")
+    _login(client, user.email, "correct-horse-battery-staple")
+    token = client.cookies.get("csrf_token")
+
+    response = client.post(
+        "/",
+        data={
+            "title": "Chapter reflection",
+            "content": "word " * 25,
+            "doc_type": "book_chapter",
+            "book_title": "Great Expectations",
+            "author": "x" * 256,
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert "Author must be" in response.text

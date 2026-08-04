@@ -1,10 +1,26 @@
 import json
 from typing import Protocol
 
+import httpx
 from openai import OpenAI
+from openai import APITimeoutError
 
-from app.ai.schemas import ESSAY_FEEDBACK_SCHEMA, EssayFeedback
+from app.ai.schemas import EssayFeedback, PracticeExerciseBatch
+from app.config import AI_TIMEOUT_SECONDS
 
+
+class AIProviderTimeoutError(RuntimeError):
+    pass
+
+# Plain JSON mode (response_format={"type": "json_object"}), not strict
+# json_schema mode: json_schema/structured-outputs support varies a lot
+# across bring-your-own-key providers and even between models on the same
+# provider (e.g. Groq only supports it for a handful of newer models, and
+# rejects the request outright with a 400 for others like
+# llama-3.3-70b-versatile). json_object is far more broadly supported, so
+# the exact shape has to be spelled out here in the prompt instead of
+# enforced by the API - EssayFeedback.parse()/model_validate() below is
+# what actually validates it on the way back in.
 SYSTEM_PROMPT = {
     "role": "system",
     "content": (
@@ -27,8 +43,15 @@ SYSTEM_PROMPT = {
         "for the rubric — scores must reflect the whole document, not just "
         "the changed portion. Produce a rubric score (0-100) for grammar, "
         "vocabulary richness, structure, and clarity, an overall score, and "
-        "a short, encouraging, plain-English summary. Respond only with the "
-        "requested JSON."
+        "a short, encouraging, plain-English summary. Respond only with a "
+        "single JSON object matching exactly this shape, no other text: "
+        '{"corrections": [{"category": "sentence_structure|vocab", '
+        '"start_offset": int, "end_offset": int, "original_text": str, '
+        '"suggested_text": str, "explanation": str, "definition": str or null, '
+        '"example_sentence": str or null}], "overall_score": number 0-100, '
+        '"grammar_score": number 0-100, "vocab_score": number 0-100, '
+        '"structure_score": number 0-100, "clarity_score": number 0-100, '
+        '"feedback_summary": str}'
     ),
 }
 
@@ -42,6 +65,22 @@ def build_user_message(essay_text: str, local_findings: dict, context: dict) -> 
         }
     )
 
+
+PRACTICE_SYSTEM_PROMPT = {
+    "role": "system",
+    "content": (
+        "You are an English writing tutor generating short practice exercises. "
+        "You are given a list of grammar/writing category names - nothing else, "
+        "no essay content. For each category, write one short fill-in-the-blank "
+        "or correct-the-sentence exercise a student could complete in under a "
+        "minute, with a single unambiguous correct answer and a short plain-"
+        "English explanation of the rule. Echo the 'category' field back exactly "
+        "as given for each exercise. Respond only with a single JSON object "
+        "matching exactly this shape, no other text: "
+        '{"exercises": [{"category": str, "prompt": str, "answer": str, '
+        '"explanation": str}]}'
+    ),
+}
 
 REWRITE_SYSTEM_PROMPT = {
     "role": "system",
@@ -60,33 +99,62 @@ REWRITE_SYSTEM_PROMPT = {
 class AIProvider(Protocol):
     def analyze(self, essay_text: str, local_findings: dict, context: dict) -> EssayFeedback: ...
     def rewrite(self, essay_text: str) -> str: ...
+    def generate_practice_exercises(self, categories: list[str]) -> PracticeExerciseBatch: ...
 
 
 class OpenAICompatibleProvider:
     def __init__(self, api_key: str, base_url: str, model: str):
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        # Redirects are intentionally disabled: a validated endpoint must not
+        # bounce a server-side request to an internal address.
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=AI_TIMEOUT_SECONDS,
+            max_retries=0,
+            http_client=httpx.Client(timeout=AI_TIMEOUT_SECONDS, follow_redirects=False),
+        )
         self.model = model
 
     def analyze(self, essay_text: str, local_findings: dict, context: dict) -> EssayFeedback:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                SYSTEM_PROMPT,
-                {"role": "user", "content": build_user_message(essay_text, local_findings, context)},
-            ],
-            response_format={"type": "json_schema", "json_schema": ESSAY_FEEDBACK_SCHEMA},
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    SYSTEM_PROMPT,
+                    {"role": "user", "content": build_user_message(essay_text, local_findings, context)},
+                ],
+                response_format={"type": "json_object"},
+            )
+        except APITimeoutError as exc:
+            raise AIProviderTimeoutError("The AI provider timed out.") from exc
         return EssayFeedback.parse(response)
 
     def rewrite(self, essay_text: str) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                REWRITE_SYSTEM_PROMPT,
-                {"role": "user", "content": essay_text},
-            ],
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    REWRITE_SYSTEM_PROMPT,
+                    {"role": "user", "content": essay_text},
+                ],
+            )
+        except APITimeoutError as exc:
+            raise AIProviderTimeoutError("The AI provider timed out.") from exc
         return response.choices[0].message.content.strip()
+
+    def generate_practice_exercises(self, categories: list[str]) -> PracticeExerciseBatch:
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    PRACTICE_SYSTEM_PROMPT,
+                    {"role": "user", "content": json.dumps({"categories": categories})},
+                ],
+                response_format={"type": "json_object"},
+            )
+        except APITimeoutError as exc:
+            raise AIProviderTimeoutError("The AI provider timed out.") from exc
+        return PracticeExerciseBatch.parse(response)
 
     def test_connection(self) -> tuple[bool, str]:
         try:

@@ -1,77 +1,186 @@
 {% extends "base.html" %}
 {% block title %}AI Provider Settings{% endblock %}
 {% block content %}
-<div class="max-w-lg mx-auto bg-white border border-slate-200 rounded-lg p-6">
-    <h1 class="text-xl font-semibold mb-1">AI provider settings</h1>
-    <p class="text-sm text-slate-500 mb-4">
-        Bring your own free-tier API key. It is encrypted at rest and never shown back to you in full.
+<div class="max-w-2xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-xl font-semibold mb-1">AI provider settings</h1>
+        <p class="text-sm text-slate-600">
+            Bring your own free-tier API keys - each is encrypted at rest and never shown back to you in
+            full. Configure up to {{ max_providers }} providers: if the first one is rate-limited or
+            unavailable, requests automatically move to the next one in the order below.
+        </p>
+    </div>
+
+    {% if message %}<p class="text-green-700 text-sm" role="status">{{ message }}</p>{% endif %}
+    {% if error %}<p class="text-red-600 text-sm" role="alert">{{ error }}</p>{% endif %}
+
+    {% if not providers %}
+    <p class="text-slate-600 text-sm">
+        No AI providers configured yet - add one below to get sentence-structure/vocabulary feedback,
+        model rewrites, and AI practice exercises.
     </p>
-
-    {% if message %}<p class="text-green-700 text-sm mb-4">{{ message }}</p>{% endif %}
-    {% if error %}<p class="text-red-600 text-sm mb-4">{{ error }}</p>{% endif %}
-
-    {% if settings %}
-    <div class="text-sm bg-slate-50 border border-slate-200 rounded px-3 py-2 mb-4">
-        <p><span class="font-medium">Current key:</span> {{ masked_key }}</p>
-        {% if settings.last_verified_at %}
-        <p class="text-slate-500">Last verified: {{ settings.last_verified_at }}</p>
-        {% else %}
-        <p class="text-amber-600">Not yet verified — use "Test connection" below.</p>
-        {% endif %}
+    {% else %}
+    <div class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200">
+        {% for p in providers %}
+        <div class="p-4 {% if not p.is_active %}opacity-60{% endif %}">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-medium truncate">
+                        {{ loop.index }}. {{ display_labels[p.id] }}
+                        {% if not p.is_active %}<span class="text-xs font-normal text-slate-500">(disabled - skipped by failover)</span>{% endif %}
+                    </p>
+                    <p class="text-xs text-slate-500">{{ p.model_name }} &middot; key {{ masked_keys[p.id] }}</p>
+                    {% if p.rate_limited_until %}
+                    <p class="text-xs text-amber-600">Cooling down after a rate limit - skipped until it passes, then eligible again automatically.</p>
+                    {% endif %}
+                    {% if p.last_verified_at %}
+                    <p class="text-xs text-slate-500">Last verified: {{ p.last_verified_at }}</p>
+                    {% else %}
+                    <p class="text-xs text-amber-600">Not yet verified - use "Test" below.</p>
+                    {% endif %}
+                </div>
+                <div class="flex flex-row sm:flex-col flex-wrap items-start sm:items-end gap-1.5 shrink-0">
+                    <div class="flex gap-1" role="group" aria-label="Reorder {{ display_labels[p.id] }}">
+                        <form method="post" action="/settings/{{ p.id }}/move">
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <input type="hidden" name="direction" value="up">
+                            <button type="submit" class="text-xs rounded px-2 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed" {% if loop.first %}disabled{% endif %} aria-label="Try this provider earlier">&uarr; Earlier</button>
+                        </form>
+                        <form method="post" action="/settings/{{ p.id }}/move">
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <input type="hidden" name="direction" value="down">
+                            <button type="submit" class="text-xs rounded px-2 py-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed" {% if loop.last %}disabled{% endif %} aria-label="Try this provider later">&darr; Later</button>
+                        </form>
+                    </div>
+                    <div class="flex gap-1.5 flex-wrap">
+                        <form method="post" action="/settings/{{ p.id }}/toggle-active">
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <button type="submit" class="text-xs font-medium rounded px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200">{% if p.is_active %}Disable{% else %}Enable{% endif %}</button>
+                        </form>
+                        <form method="post" action="/settings/{{ p.id }}/test">
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <button type="submit" class="text-xs font-medium rounded px-3 py-1.5 border border-indigo-600 text-indigo-700 hover:bg-indigo-50">Test</button>
+                        </form>
+                        <form
+                            method="post"
+                            action="/settings/{{ p.id }}/delete"
+                            data-confirm-title="Remove this provider?"
+                            data-confirm-message='Remove &quot;{{ display_labels[p.id] }}&quot; from your AI providers? This cannot be undone.'
+                            data-confirm-accept="Remove provider"
+                        >
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                            <button type="submit" class="text-xs font-medium rounded px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <details class="mt-2">
+                <summary class="cursor-pointer text-xs text-indigo-700">Edit</summary>
+                <form method="post" action="/settings/{{ p.id }}/edit" class="mt-2 space-y-2 max-w-sm">
+                    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                    <label class="block text-xs font-medium text-slate-600">Label (optional)
+                        <input name="label" maxlength="100" value="{{ p.label or '' }}" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">
+                    </label>
+                    <label class="block text-xs font-medium text-slate-600">Model name
+                        <input name="model_name" maxlength="255" required value="{{ p.model_name }}" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">
+                    </label>
+                    {% if p.provider == 'custom' %}
+                    <label class="block text-xs font-medium text-slate-600">Base URL
+                        <input name="base_url" type="url" maxlength="500" value="{{ p.base_url or '' }}" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">
+                    </label>
+                    {% endif %}
+                    <label class="block text-xs font-medium text-slate-600">API key <span class="font-normal text-slate-500">(leave blank to keep the current key)</span>
+                        <input name="api_key" type="password" autocomplete="off" class="w-full border border-slate-300 rounded px-3 py-2 text-sm mt-1">
+                    </label>
+                    <button type="submit" class="bg-indigo-600 text-white rounded px-3 py-1.5 text-xs font-medium hover:bg-indigo-700">Save changes</button>
+                </form>
+            </details>
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
 
-    {% set selected_provider_key = settings.provider if settings and settings.provider in providers else (providers.keys() | list)[0] %}
-    {% set selected_example_model = providers[selected_provider_key].example_model or "your model" %}
-    <form method="post" action="/settings" class="space-y-4">
-        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-        <div>
-            <label class="block text-sm font-medium mb-1" for="provider">Provider</label>
-            <select class="w-full border border-slate-300 rounded px-3 py-2" id="provider" name="provider">
-                {% for key, info in providers.items() %}
-                <option value="{{ key }}" data-example-model="{{ info.example_model or '' }}" {% if settings and settings.provider == key %}selected{% endif %}>{{ info.label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="block text-sm font-medium mb-1" for="model_name">Model name</label>
-            <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="model_name" name="model_name"
-                   value="{{ settings.model_name if settings else '' }}" placeholder="e.g. {{ selected_example_model }}" required>
-        </div>
-        <div>
-            <label class="block text-sm font-medium mb-1" for="base_url">Base URL <span class="text-slate-400 font-normal">(leave blank to use the provider default)</span></label>
-            <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="base_url" name="base_url"
-                   value="{{ settings.base_url if settings else '' }}" placeholder="https://...">
-        </div>
-        <div>
-            <label class="block text-sm font-medium mb-1" for="api_key">API key {% if settings %}<span class="text-slate-400 font-normal">(leave blank to keep the current key)</span>{% endif %}</label>
-            <input class="w-full border border-slate-300 rounded px-3 py-2" type="password" id="api_key" name="api_key" autocomplete="off">
-        </div>
-        <button class="w-full bg-indigo-600 text-white rounded py-2 font-medium hover:bg-indigo-700" type="submit">Save</button>
-    </form>
-
-    {% if settings %}
-    <form method="post" action="/settings/test" class="mt-3">
-        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-        <button class="w-full border border-indigo-600 text-indigo-700 rounded py-2 font-medium hover:bg-indigo-50" type="submit">Test connection</button>
-    </form>
-    {% endif %}
+    <div class="bg-white border border-slate-200 rounded-lg p-6">
+        <h2 class="font-semibold mb-3">Add {% if providers %}another{% endif %} AI provider</h2>
+        {% if at_limit %}
+        <p class="text-sm text-slate-600">
+            You've configured the maximum of {{ max_providers }} providers. Delete one above to add another.
+        </p>
+        {% else %}
+        {% set default_provider_key = (provider_registry.keys() | list)[0] %}
+        {% set default_example_model = provider_registry[default_provider_key].example_model or "your model" %}
+        <form method="post" action="/settings" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+            <div>
+                <label class="block text-sm font-medium mb-1" for="label">Label (optional)</label>
+                <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="label" name="label" maxlength="100" placeholder="e.g. Groq backup">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1" for="provider">Provider</label>
+                <select class="w-full border border-slate-300 rounded px-3 py-2" id="provider" name="provider">
+                    {% for key, info in provider_registry.items() %}
+                    <option value="{{ key }}" data-example-model="{{ info.example_model or '' }}">{{ info.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1" for="model_name">Model name</label>
+                <input class="w-full border border-slate-300 rounded px-3 py-2" type="text" id="model_name" name="model_name" maxlength="255"
+                       placeholder="e.g. {{ default_example_model }}" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1" for="base_url">Base URL <span class="text-slate-500 font-normal">(leave blank to use the provider default)</span></label>
+                <input class="w-full border border-slate-300 rounded px-3 py-2" type="url" id="base_url" name="base_url" maxlength="500"
+                       placeholder="Available only for explicitly enabled custom HTTPS endpoints" {% if 'custom' not in provider_registry %}disabled{% endif %}>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1" for="api_key">API key</label>
+                <input class="w-full border border-slate-300 rounded px-3 py-2" type="password" id="api_key" name="api_key" autocomplete="off" required>
+            </div>
+            <button class="w-full bg-indigo-600 text-white rounded py-2 font-medium hover:bg-indigo-700" type="submit">Add provider</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 <script src="/static/settings.js"></script>
 
-<div class="max-w-lg mx-auto bg-white border border-red-200 rounded-lg p-6 mt-6">
+<div class="max-w-2xl mx-auto bg-white border border-red-200 rounded-lg p-6 mt-6">
     <h2 class="text-lg font-semibold mb-1 text-red-700">Delete account</h2>
-    <p class="text-sm text-slate-500 mb-4">
+    <p class="text-sm text-slate-600 mb-4">
         This permanently deletes your account and everything tied to it — essays,
-        book chapters, vocabulary words, and AI provider settings. This cannot be undone.
+        book chapters, vocabulary words, progress history, and AI provider settings. This cannot be undone.
     </p>
-    <form method="post" action="/settings/delete-account" class="space-y-3">
+    <form method="post" action="/settings/delete-account" class="space-y-3" data-delete-account-form data-confirm-email="{{ user_email }}">
         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
         <div>
             <label class="block text-sm font-medium mb-1" for="delete_password">Confirm your password</label>
             <input class="w-full border border-slate-300 rounded px-3 py-2" type="password" id="delete_password" name="password" autocomplete="current-password" required>
         </div>
-        <button class="w-full bg-red-600 text-white rounded py-2 font-medium hover:bg-red-700" type="submit">Permanently delete my account</button>
+        <div>
+            <label class="block text-sm font-medium mb-1" for="delete_confirm_email">
+                Type your email address (<span class="font-mono">{{ user_email }}</span>) to confirm
+            </label>
+            <input
+                class="w-full border border-slate-300 rounded px-3 py-2"
+                type="email"
+                id="delete_confirm_email"
+                name="confirm_email"
+                autocomplete="off"
+                data-delete-confirm-input
+                required
+            >
+            <p class="text-xs text-slate-500 mt-1" id="delete-confirm-hint" aria-live="polite">
+                Must exactly match your account email.
+            </p>
+        </div>
+        <button
+            class="w-full bg-red-600 text-white rounded py-2 font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit"
+            data-delete-submit
+            disabled
+        >
+            Permanently delete my account
+        </button>
     </form>
 </div>
 {% endblock %}
